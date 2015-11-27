@@ -16,27 +16,27 @@ import gui_settings as settings
 class QCACellWidget(QtGui.QWidget):
     '''QCA Cell Widget'''
 
-    def __init__(self, parent, cell, spacing=1., offset=[0,0]):
+    def __init__(self, parent, cell, spacing=1., offset=[0, 0]):
         ''' '''
         super(QCACellWidget, self).__init__(parent)
-        
+
         # cell parameters
         self.x = settings.CELL_SEP*(cell['x']-offset[0])*1./spacing
         self.y = settings.CELL_SEP*(cell['y']-offset[1])*1./spacing
-        
+
         self.cell_pen = QtGui.QPen(settings.CELL_PEN_COLOR)
         self.cell_pen.setWidth(settings.CELL_PEN_WIDTH)
-        
+
         self.text_pen = QtGui.QPen(settings.TEXT_PEN_COLOR)
         self.text_pen.setWidth(settings.TEXT_PEN_WIDTH)
-        
+
         self.type = cell['cf']
         self.qdots = []
         for qd in cell['qdots']:
             x = settings.CELL_SEP*(qd['x']-offset[0])*1./spacing
             y = settings.CELL_SEP*(qd['y']-offset[1])*1./spacing
             self.qdots.append([x, y])
-            
+
     def get_color(self):
         '''Determine the background color of the QCA Cell'''
 
@@ -72,10 +72,9 @@ class QCACellWidget(QtGui.QWidget):
         painter.setBrush(self.get_color())
         rect = self.geometry()
         painter.drawRect(rect)
-        
+
         # draw dots
         pass
-        
 
 
 class Canvas(QtGui.QWidget):
@@ -95,16 +94,15 @@ class Canvas(QtGui.QWidget):
         self.drawCircuit(painter)
         painter.end()
 
-    def rescale(self, zoom=True):
+    def rescale(self, zoom=True, f=1.):
         ''' '''
         geo = self.geometry()
         old_scaling = self.scaling
+        step = f*settings.MAG_STEP
         if zoom:
-            self.scaling = min(settings.MAX_MAG,
-                               self.scaling + settings.MAG_STEP)
+            self.scaling = min(settings.MAX_MAG, self.scaling + step)
         else:
-            self.scaling = max(settings.MIN_MAG,
-                               self.scaling - settings.MAG_STEP)
+            self.scaling = max(settings.MIN_MAG, self.scaling - step)
         scale_fact = self.scaling/old_scaling
         geo.setWidth(geo.width()*scale_fact)
         geo.setHeight(geo.height()*scale_fact)
@@ -136,6 +134,7 @@ class QCAWidget(QtGui.QScrollArea):
         # parameters
         self.mouse_pos = None
         self.cells = []
+        self.zoom_flag = False
 
         # create main widget
         self.canvas = Canvas(self)
@@ -177,5 +176,20 @@ class QCAWidget(QtGui.QScrollArea):
             self.canvas.rescale(zoom=False)
         elif e.key() == QtCore.Qt.Key_Plus:
             self.canvas.rescale(zoom=True)
+        elif e.key() == QtCore.Qt.Key_Control:
+            self.zoom_flag = True
         else:
             e.ignore()
+
+    def keyReleaseEvent(self, e):
+        ''' '''
+        if e.key() == QtCore.Qt.Key_Control:
+            self.zoom_flag = False
+
+    def wheelEvent(self, e):
+        '''Scrolling options'''
+
+        if self.zoom_flag:
+            self.canvas.rescale(zoom=e.delta() > 0, f=settings.MAG_WHEEL_FACT)
+        else:
+            super(QCAWidget, self).wheelEvent(e)

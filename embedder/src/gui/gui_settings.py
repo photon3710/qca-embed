@@ -23,9 +23,9 @@ ICO_DIR = '/gui/ico/'   # icon directory
 BUTTON_SIZE = 25    # size of buttons
 
 # QCA CELL PARAMETERS
-CELL_SEP = 50
-CELL_SIZE = 1.*CELL_SEP
-CELL_ALPHA = int(.15*255)
+CELL_SEP = 50               #
+CELL_SIZE = 1.*CELL_SEP     #
+CELL_ALPHA = int(.15*255)   #
 
 # --colors
 QCA_COL = {'default': QtGui.QColor(255, 255, 255),
@@ -37,12 +37,13 @@ QCA_COL = {'default': QtGui.QColor(255, 255, 255),
 DOT_RAD = 0.25*CELL_SIZE
 
 # --qca pen
-CELL_PEN_WIDTH = max(1, int(0.05*CELL_SIZE))
-CELL_PEN_COLOR = QtGui.QColor(180, 180, 180)
-TEXT_PEN_WIDTH = max(1, int(0.05*CELL_SIZE))
-TEXT_PEN_COLOR = QtGui.QColor(0, 0, 0)
+CELL_PEN_WIDTH = max(1, int(0.05*CELL_SIZE))    #
+CELL_PEN_COLOR = QtGui.QColor(180, 180, 180)    #
+TEXT_PEN_WIDTH = max(1, int(0.05*CELL_SIZE))    #
+TEXT_PEN_COLOR = QtGui.QColor(0, 0, 0)          #
 
 # --qca magnification
-MAX_MAG = 5
-MIN_MAG = 0.1
-MAG_STEP = 0.1
+MAX_MAG = 5             # maximum magnification
+MIN_MAG = 0.1           # minimum magnification
+MAG_STEP = 0.1          # magnification step
+MAG_WHEEL_FACT = 0.2    # factor for wheel zoom
