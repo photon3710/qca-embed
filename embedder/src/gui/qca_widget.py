@@ -16,11 +16,48 @@ import gui_settings as settings
 class QCACellWidget(QtGui.QWidget):
     '''QCA Cell Widget'''
 
-    def __init__(self, parent, x, y, dx, dy):
+    def __init__(self, parent, cell, spacing=1., offset=[0,0]):
         ''' '''
         super(QCACellWidget, self).__init__(parent)
-        self.setGeometry(x, y, dx, dy)
         
+        # cell parameters
+        self.x = settings.CELL_SEP*(cell['x']-offset[0])*1./spacing
+        self.y = settings.CELL_SEP*(cell['y']-offset[1])*1./spacing
+        
+        self.cell_pen = QtGui.QPen(settings.CELL_PEN_COLOR)
+        self.cell_pen.setWidth(settings.CELL_PEN_WIDTH)
+        
+        self.text_pen = QtGui.QPen(settings.TEXT_PEN_COLOR)
+        self.text_pen.setWidth(settings.TEXT_PEN_WIDTH)
+        
+        self.type = cell['cf']
+        self.qdots = []
+        for qd in cell['qdots']:
+            x = settings.CELL_SEP*(qd['x']-offset[0])*1./spacing
+            y = settings.CELL_SEP*(qd['y']-offset[1])*1./spacing
+            self.qdots.append([x, y])
+            
+    def get_color(self):
+        '''Determine the background color of the QCA Cell'''
+
+        # first check for cell type
+        if self.type == 0:
+            color = settings.QCA_COL['default']
+        elif self.type == 1:    # input
+            color = settings.QCA_COL['input']
+        elif self.type == 2:    # output
+            color = settings.QCA_COL['output']
+        elif self.type == 3:    # fixed
+            color = settings.QCA_COL['fixed']
+        else:
+            print('Invalid cell type')
+            color = settings.QCA_COL['default']
+
+        if type(color) is tuple:
+            color = [int(255*c) for c in color]
+            color[3] = settings.CELL_ALPHA
+            color = QtGui.QColor(*color)
+        return color
 
     def paintEvent(self, e):
         ''' '''
@@ -30,10 +67,15 @@ class QCACellWidget(QtGui.QWidget):
         painter.end()
 
     def drawCell(self, painter, scaling=1.):
-        ''' '''
-        painter.setPen(QtGui.QColor(0, 0, 0))
+        '''Move and repaint cell widget'''
+        painter.setPen(self.pen)
+        painter.setBrush(self.get_color())
         rect = self.geometry()
         painter.drawRect(rect)
+        
+        # draw dots
+        pass
+        
 
 
 class Canvas(QtGui.QWidget):
@@ -71,7 +113,8 @@ class Canvas(QtGui.QWidget):
 
     def drawCircuit(self, painter):
         ''' '''
-        for cell in self.parent.cells:
+        cells = self.parent.cells
+        for cell in cells:
             cell.drawCell(painter, self.scaling)
 
 
@@ -98,9 +141,6 @@ class QCAWidget(QtGui.QScrollArea):
         self.canvas = Canvas(self)
         self.canvas.setGeometry(0, 0, 1000, 1000)
         self.setWidget(self.canvas)
-
-        self.addCell(60, 10, settings.CELL_SIZE, settings.CELL_SIZE)
-        self.addCell(100, 100, settings.CELL_SIZE, settings.CELL_SIZE)
 
 #    def paintEvent(self, e):
 #        ''' '''

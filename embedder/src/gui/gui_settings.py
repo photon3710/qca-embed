@@ -12,7 +12,7 @@
 from PyQt4 import QtGui
 
 # MAIN WINDOW SETTINGS
-WIN_DX = 1000   # width of the main window
+WIN_DX = 1200   # width of the main window
 WIN_DY = 600    # height of the main window
 WIN_X0 = 100    # x-offset of the main window
 WIN_Y0 = 100    # y-offset of the main window
