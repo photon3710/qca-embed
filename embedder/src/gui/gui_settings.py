@@ -18,13 +18,13 @@ WIN_X0 = 100    # x-offset of the main window
 WIN_Y0 = 100    # y-offset of the main window
 
 ICO_SIZE = 30           # icon size
-ICO_DIR = '/gui/ico/'   # icon directory
+ICO_DIR = './gui/ico/'   # icon directory
 
 BUTTON_SIZE = 25    # size of buttons
 
 # QCA CELL PARAMETERS
-CELL_SEP = 50               #
-CELL_SIZE = 1.*CELL_SEP     #
+CELL_SEP = 70               #
+CELL_SIZE = .8*CELL_SEP     #
 CELL_ALPHA = int(.15*255)   #
 
 # --colors

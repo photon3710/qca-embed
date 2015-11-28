@@ -11,6 +11,9 @@
 
 from PyQt4 import QtGui, QtCore
 import gui_settings as settings
+from core.parse_qca import parse_qca_file
+
+import numpy as np
 
 
 class QCACellWidget(QtGui.QWidget):
@@ -32,6 +35,7 @@ class QCACellWidget(QtGui.QWidget):
 
         self.type = cell['cf']
         self.qdots = []
+        self.num = cell['number']
         for qd in cell['qdots']:
             x = settings.CELL_SEP*(qd['x']-offset[0])*1./spacing
             y = settings.CELL_SEP*(qd['y']-offset[1])*1./spacing
@@ -68,13 +72,27 @@ class QCACellWidget(QtGui.QWidget):
 
     def drawCell(self, painter, scaling=1.):
         '''Move and repaint cell widget'''
-        painter.setPen(self.pen)
-        painter.setBrush(self.get_color())
-        rect = self.geometry()
-        painter.drawRect(rect)
 
-        # draw dots
-        pass
+        painter.setPen(self.cell_pen)
+        painter.setBrush(self.get_color())
+
+        # find now placement of cell
+        _x = self.x*scaling
+        _y = self.y*scaling
+
+        # draw cell box
+        _sep = settings.CELL_SIZE*scaling
+        self.setGeometry(_x, _y, _sep, _sep)
+        painter.drawRect(self.geometry())
+
+        # write cell label
+        painter.setPen(self.text_pen)
+        painter.setFont(QtGui.QFont('Decorative', 10))
+        painter.drawText(self.geometry(), QtCore.Qt.AlignCenter, str(self.num))
+
+    def mousePressEvent(self, e):
+        ''' '''
+        print('Clicked cell {0}'.format(self.num))
 
 
 class Canvas(QtGui.QWidget):
@@ -93,6 +111,12 @@ class Canvas(QtGui.QWidget):
         painter.begin(self)
         self.drawCircuit(painter)
         painter.end()
+        
+    def mouseDoubleClickEvent(self, e):
+        ''' '''
+        
+        # determine which cell was clicked
+        
 
     def rescale(self, zoom=True, f=1.):
         ''' '''
@@ -123,10 +147,17 @@ class QCAWidget(QtGui.QScrollArea):
         ''' '''
         super(QCAWidget, self).__init__()
 
+        # parameters
+        self.cells = []         # list of qca cells
+        self.spacing = 1.       # cell-cell spacing value
+        self.J = np.zeros(0)    # cell-cell interaction matrix
+
         # mouse tracking
         self.mouse_pos = None
-        self.cells = []     # list of qca cells
         self.initUI()
+
+        if filename is not None:
+            self.updateCircuit(filename)
 
     def initUI(self):
         ''' '''
@@ -138,7 +169,7 @@ class QCAWidget(QtGui.QScrollArea):
 
         # create main widget
         self.canvas = Canvas(self)
-        self.canvas.setGeometry(0, 0, 1000, 1000)
+        self.canvas.setGeometry(0, 0, 0, 0)
         self.setWidget(self.canvas)
 
 #    def paintEvent(self, e):
@@ -149,9 +180,48 @@ class QCAWidget(QtGui.QScrollArea):
 #        self.drawCircuit(painter)
 #        painter.end()
 
-    def addCell(self, x, y, dx, dy):
+    def updateCircuit(self, filename):
         ''' '''
-        cell = QCACellWidget(self, x, y, dx, dy)
+
+        try:
+            cells, spacing, zones, J, feedback = \
+                    parse_qca_file(filename, one_zone=True)
+        except:
+            print('Failed to load QCA File...')
+            return
+
+        # forget old circuit
+        self.cells = []
+
+        # find span and offset of circuit: currently inefficient
+        x_min = min([cell['x'] for cell in cells])
+        x_max = max([cell['x'] for cell in cells])
+        y_min = min([cell['y'] for cell in cells])
+        y_max = max([cell['y'] for cell in cells])
+
+        offset = [x_min, y_min]
+        span = [x_max-x_min, y_max-y_min]
+
+        # update circuit constants
+        self.spacing = spacing
+        self.offset = offset
+
+        # update size and scaling of canvas
+        factor = settings.CELL_SEP*1./spacing
+        self.canvas.setGeometry(0, 0,
+                                span[0]*factor, span[1]*factor)
+        self.canvas.scaling = 1.
+
+        # add new cells
+        for cell in cells:
+            self.addCell(cell)
+
+        self.canvas.update()
+
+    def addCell(self, cell):
+        ''' '''
+        cell = QCACellWidget(self.canvas, cell,
+                             spacing=self.spacing, offset=self.offset)
         self.cells.append(cell)
 
     # interrupts
