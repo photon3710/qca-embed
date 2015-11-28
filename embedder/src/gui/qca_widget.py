@@ -199,15 +199,15 @@ class QCAWidget(QtGui.QScrollArea):
         y_min = min([cell['y'] for cell in cells])
         y_max = max([cell['y'] for cell in cells])
 
-        offset = [x_min, y_min]
         span = [x_max-x_min, y_max-y_min]
+        offset = [x_min-.5*span[0], y_min-.5*span[1]]
 
         # update circuit constants
         self.spacing = spacing
         self.offset = offset
 
         # update size and scaling of canvas
-        factor = settings.CELL_SEP*1./spacing
+        factor = 2*settings.CELL_SEP*1./spacing
         self.canvas.setGeometry(0, 0,
                                 span[0]*factor, span[1]*factor)
         self.canvas.scaling = 1.

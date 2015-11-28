@@ -106,19 +106,19 @@ class MainWindow(QtGui.QMainWindow):
         action_qca_file = QtGui.QAction(self)
         action_qca_file.setIcon(
             QtGui.QIcon(settings.ICO_DIR+'qca_file.png'))
-        action_qca_file.setStatusTip('&Open QCA file...')
+        action_qca_file.setStatusTip('Open QCA file...')
         action_qca_file.triggered.connect(self.load_qca_file)
 
         action_embed_file = QtGui.QAction(self)
         action_embed_file.setIcon(
             QtGui.QIcon(settings.ICO_DIR+'embed_file.png'))
-        action_embed_file.setStatusTip('&Open embedding file...')
+        action_embed_file.setStatusTip('Open embedding file...')
         action_embed_file.triggered.connect(self.load_embed_file)
 
         action_chimera_file = QtGui.QAction(self)
         action_chimera_file.setIcon(
             QtGui.QIcon(settings.ICO_DIR+'chimera_file.png'))
-        action_chimera_file.setStatusTip('&Open chimera file...')
+        action_chimera_file.setStatusTip('Open chimera file...')
         action_chimera_file.triggered.connect(self.load_chimera_file)
 
         toolbar.addAction(action_qca_file)
