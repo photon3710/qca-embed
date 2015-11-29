@@ -9,7 +9,7 @@
 # Licence: Copyright 2015
 # -----------------------------------
 
-from PyQt4 import QtGui
+from PyQt4 import QtGui, QtCore
 
 # MAIN WINDOW SETTINGS
 WIN_DX = 1200   # width of the main window
@@ -30,9 +30,9 @@ CELL_ALPHA = int(.15*255)   #
 # --colors
 QCA_COL = {'default': QtGui.QColor(255, 255, 255),
            'inactive': QtGui.QColor(100, 100, 100),
-           'output': QtGui.QColor(0, 200, 0, 150),
-           'input': QtGui.QColor(200, 0, 0, 150),
-           'fixed': QtGui.QColor(255, 165, 0, 150)}
+           'output': QtGui.QColor(0, 200, 0),
+           'input': QtGui.QColor(200, 0, 0),
+           'fixed': QtGui.QColor(255, 165, 0)}
 
 DOT_RAD = 0.25*CELL_SIZE
 
@@ -41,6 +41,9 @@ CELL_PEN_WIDTH = max(1, int(0.05*CELL_SIZE))    #
 CELL_PEN_COLOR = QtGui.QColor(180, 180, 180)    #
 TEXT_PEN_WIDTH = max(1, int(0.05*CELL_SIZE))    #
 TEXT_PEN_COLOR = QtGui.QColor(0, 0, 0)          #
+INT_PEN_STYLE = {'strong': QtCore.Qt.SolidLine,
+                 'weak': QtCore.Qt.DashLine}
+INT_PEN_WIDTH = 3
 
 # --qca magnification
 MAX_MAG = 5             # maximum magnification

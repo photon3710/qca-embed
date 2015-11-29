@@ -98,7 +98,7 @@ class Canvas(QtGui.QWidget):
         super(Canvas, self).__init__()
         self.parent = parent
         self.scaling = 1.
-        
+
         self.w = 1.
         self.h = 1.
 
@@ -107,13 +107,9 @@ class Canvas(QtGui.QWidget):
         ''' '''
         painter = QtGui.QPainter()
         painter.begin(self)
-        cells = self.parent.cells
-        for cell in cells:
-            _x = cell.x*self.scaling
-            _y = cell.y*self.scaling
-            _size = settings.CELL_SIZE*self.scaling
-            cell.setGeometry(_x, _y, _size, _size)
-            cell.drawCell(painter)
+        self.moveCells()
+        self.drawConnections(painter)
+        self.drawCells(painter)
         painter.end()
 
     def mousePressEvent(self, e):
@@ -137,6 +133,41 @@ class Canvas(QtGui.QWidget):
         self.setGeometry(geo)
         self.update()
 
+    def moveCells(self):
+        ''' '''
+        for cell in self.parent.cells:
+            _x = cell.x*self.scaling
+            _y = cell.y*self.scaling
+            _size = settings.CELL_SIZE*self.scaling
+            cell.setGeometry(_x, _y, _size, _size)
+
+    def drawCells(self, painter):
+        ''' '''
+        for cell in self.parent.cells:
+            cell.drawCell(painter)
+
+    def drawConnections(self, painter):
+        ''' '''
+        J0 = self.parent.J0
+
+        # store cell centers
+        X = []
+        Y = []
+        for cell in self.parent.cells:
+            geo = cell.geometry()
+            X.append(geo.x()+.5*geo.width())
+            Y.append(geo.y()+.5*geo.height())
+        # draw all non-zero interactions
+        pen = QtGui.QPen(QtGui.QColor(0, 0, 0, 255))
+        pen.setWidth(max(1, settings.INT_PEN_WIDTH*self.scaling))
+        for i in xrange(J0.shape[0]-1):
+            for j in xrange(i+1, J0.shape[0]):
+                if abs(J0[i, j]) > 0.:
+                    pen.setStyle(settings.INT_PEN_STYLE[
+                        'strong' if abs(J0[i, j]) > 0.5 else 'weak'])
+                    painter.setPen(pen)
+                    painter.drawLine(X[i], Y[i], X[j], Y[j])
+
 
 class QCAWidget(QtGui.QScrollArea):
     '''Widget for viewing QCA circuits'''
@@ -149,6 +180,7 @@ class QCAWidget(QtGui.QScrollArea):
         self.cells = []         # list of qca cells
         self.spacing = 1.       # cell-cell spacing value
         self.J = np.zeros(0)    # cell-cell interaction matrix
+        self.J0 = self.J        # J with only included interactions
 
         # mouse tracking
         self.mouse_pos = None
@@ -182,6 +214,10 @@ class QCAWidget(QtGui.QScrollArea):
 
         # forget old circuit
         self.cells = []
+
+        # update J coefficients
+        self.J = J
+        self.J0 = J/np.max(np.abs(J))
 
         # find span and offset of circuit: currently inefficient
         x_min = min([cell['x'] for cell in cells])
