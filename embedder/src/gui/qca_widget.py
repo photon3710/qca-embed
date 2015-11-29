@@ -41,6 +41,8 @@ class QCACellWidget(QtGui.QWidget):
             y = settings.CELL_SEP*(qd['y']-offset[1])*1./spacing
             self.qdots.append([x, y])
 
+        self.setGeometry(0, 0, settings.CELL_SIZE, settings.CELL_SIZE)
+
     def get_color(self):
         '''Determine the background color of the QCA Cell'''
 
@@ -70,19 +72,12 @@ class QCACellWidget(QtGui.QWidget):
         self.drawCell(painter)
         painter.end()
 
-    def drawCell(self, painter, scaling=1.):
-        '''Move and repaint cell widget'''
+    def drawCell(self, painter):
+        '''Redraw cell widget'''
 
         painter.setPen(self.cell_pen)
         painter.setBrush(self.get_color())
 
-        # find now placement of cell
-        _x = self.x*scaling
-        _y = self.y*scaling
-
-        # draw cell box
-        _sep = settings.CELL_SIZE*scaling
-        self.setGeometry(_x, _y, _sep, _sep)
         painter.drawRect(self.geometry())
 
         # write cell label
@@ -103,41 +98,44 @@ class Canvas(QtGui.QWidget):
         super(Canvas, self).__init__()
         self.parent = parent
         self.scaling = 1.
+        
+        self.w = 1.
+        self.h = 1.
 
     # Interrupts
     def paintEvent(self, e):
         ''' '''
         painter = QtGui.QPainter()
         painter.begin(self)
-        self.drawCircuit(painter)
+        cells = self.parent.cells
+        for cell in cells:
+            _x = cell.x*self.scaling
+            _y = cell.y*self.scaling
+            _size = settings.CELL_SIZE*self.scaling
+            cell.setGeometry(_x, _y, _size, _size)
+            cell.drawCell(painter)
         painter.end()
-        
+
+    def mousePressEvent(self, e):
+        self.parent.mousePressEvent(e)
+
     def mouseDoubleClickEvent(self, e):
         ''' '''
-        
+        pass
         # determine which cell was clicked
-        
 
     def rescale(self, zoom=True, f=1.):
         ''' '''
-        geo = self.geometry()
-        old_scaling = self.scaling
         step = f*settings.MAG_STEP
         if zoom:
             self.scaling = min(settings.MAX_MAG, self.scaling + step)
         else:
             self.scaling = max(settings.MIN_MAG, self.scaling - step)
-        scale_fact = self.scaling/old_scaling
-        geo.setWidth(geo.width()*scale_fact)
-        geo.setHeight(geo.height()*scale_fact)
+        geo = self.geometry()
+        geo.setWidth(self.w*self.scaling)
+        geo.setHeight(self.h*self.scaling)
         self.setGeometry(geo)
         self.update()
-
-    def drawCircuit(self, painter):
-        ''' '''
-        cells = self.parent.cells
-        for cell in cells:
-            cell.drawCell(painter, self.scaling)
 
 
 class QCAWidget(QtGui.QScrollArea):
@@ -172,14 +170,6 @@ class QCAWidget(QtGui.QScrollArea):
         self.canvas.setGeometry(0, 0, 0, 0)
         self.setWidget(self.canvas)
 
-#    def paintEvent(self, e):
-#        ''' '''
-#        super(QCAWidget, self).paintEvent(e)
-#        painter = QtGui.QPainter()
-#        painter.begin(self)
-#        self.drawCircuit(painter)
-#        painter.end()
-
     def updateCircuit(self, filename):
         ''' '''
 
@@ -199,7 +189,7 @@ class QCAWidget(QtGui.QScrollArea):
         y_min = min([cell['y'] for cell in cells])
         y_max = max([cell['y'] for cell in cells])
 
-        o = QCA_CANVAS_OFFSET
+        o = settings.QCA_CANVAS_OFFSET
         span = [x_max-x_min, y_max-y_min]
         offset = [x_min-o*span[0], y_min-o*span[1]]
 
@@ -209,9 +199,11 @@ class QCAWidget(QtGui.QScrollArea):
 
         # update size and scaling of canvas
         factor = (1+2*o)*settings.CELL_SEP*1./spacing
-        self.canvas.setGeometry(0, 0,
-                                span[0]*factor, span[1]*factor)
         self.canvas.scaling = 1.
+        self.canvas.w = span[0]*factor
+        self.canvas.h = span[1]*factor
+        self.canvas.setGeometry(0, 0,
+                                self.canvas.w, self.canvas.h)
 
         # add new cells
         for cell in cells:
@@ -224,6 +216,7 @@ class QCAWidget(QtGui.QScrollArea):
         cell = QCACellWidget(self.canvas, cell,
                              spacing=self.spacing, offset=self.offset)
         self.cells.append(cell)
+        cell.show()
 
     # interrupts
 
