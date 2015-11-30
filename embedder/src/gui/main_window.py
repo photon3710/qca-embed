@@ -15,7 +15,7 @@ import gui_settings as settings
 from qca_widget import QCAWidget
 from chimera_widget import ChimeraWidget
 
-from pprint import pprint
+#from pprint import pprint
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -162,7 +162,8 @@ class MainWindow(QtGui.QMainWindow):
         fdir = os.path.dirname(fname)
         self.qca_dir = fdir
 
-        self.qca_widget.updateCircuit(fname)
+        adj_typ = 'full' if self.full_adj else 'lim'
+        self.qca_widget.updateCircuit(fname, adj_typ=adj_typ)
         
         if not self.qca_active:
             self.qca_active = True
@@ -216,8 +217,6 @@ class MainWindow(QtGui.QMainWindow):
         
         # get chimera sub-graph
         M, N, adj, active_range = self.chimera_widget.getActiveGraph()
-        print M, N
-        pprint(adj)
 
     def closeEvent(self, e):
         '''Handle main window close event'''
