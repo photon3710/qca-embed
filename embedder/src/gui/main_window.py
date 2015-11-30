@@ -136,11 +136,19 @@ class MainWindow(QtGui.QMainWindow):
         self.action_switch_adj.setStatusTip('Switch to Limited Adjacency...')
         self.action_switch_adj.triggered.connect(self.switch_adjacency)
         self.action_switch_adj.setEnabled(False)
+        
+        self.action_embed = QtGui.QAction(self)
+        self.action_embed.setIcon(
+            QtGui.QIcon(settings.ICO_DIR+'embed.png'))
+        self.action_embed.setStatusTip('Embed diplayed circuit...')
+        self.action_embed.triggered.connect(self.embed_circuit)
+        self.action_embed.setEnabled(False)
 
         toolbar.addAction(action_qca_file)
 #        toolbar.addAction(action_embed_file)
         toolbar.addAction(action_chimera_file)
         toolbar.addAction(self.action_switch_adj)
+        toolbar.addAction(self.action_embed)
 
     def load_qca_file(self):
         '''Prompt filename for qca file'''
@@ -156,6 +164,7 @@ class MainWindow(QtGui.QMainWindow):
         
         if not self.qca_active:
             self.qca_active = True
+            self.action_embed.setEnabled(True)
             self.action_switch_adj.setEnabled(True)
 
     def load_embed_file(self):
@@ -194,6 +203,13 @@ class MainWindow(QtGui.QMainWindow):
             self.action_switch_adj.setStatusTip(
                 'Switch to {0} Adjacency...'.format(sub_message))
             self.qca_widget.setAdjacency('full' if self.full_adj else 'lim')
+        
+    def embed_circuit(self):
+        '''Run embedding on displayed circuit into selected chimera 
+        sub-graph'''
+        
+        print('Running embedding...')
+        pass
 
     def closeEvent(self, e):
         '''Handle main window close event'''
