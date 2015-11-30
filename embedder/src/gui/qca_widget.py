@@ -23,6 +23,9 @@ class QCACellWidget(QtGui.QWidget):
         ''' '''
         super(QCACellWidget, self).__init__(parent)
 
+        self.parent = parent
+        self.qca_widget = parent.parent
+
         # cell parameters
         self.x = settings.CELL_SEP*(cell['x']-offset[0])*1./spacing
         self.y = settings.CELL_SEP*(cell['y']-offset[1])*1./spacing
@@ -90,8 +93,8 @@ class QCACellWidget(QtGui.QWidget):
 
     def mousePressEvent(self, e):
         ''' '''
-        print('Clicked cell {0}'.format(self.num))
-        self.clicked = True
+#        print('Clicked cell {0}'.format(self.num))
+        self.qca_widget.onClick(self.num)
 
 
 class Canvas(QtGui.QWidget):
@@ -257,6 +260,16 @@ class QCAWidget(QtGui.QScrollArea):
                              spacing=self.spacing, offset=self.offset)
         self.cells.append(cell)
         cell.show()
+
+    def onClick(self, num):
+        '''Response to clicking on one the QCA cells'''
+
+        for cell in self.cells:
+            cell.clicked = False
+        self.cells[num].clicked = True
+
+        self.canvas.update()
+        print('Detected click on cell {0}'.format(num))
 
     # interrupts
 
