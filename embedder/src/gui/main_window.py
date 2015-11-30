@@ -91,9 +91,15 @@ class MainWindow(QtGui.QMainWindow):
             'Open chimera file...', self)
         chimeraFileAction.triggered.connect(self.load_chimera_file)
 
+        exitAction = QtGui.QAction('Exit', self)
+        exitAction.setShortcut('Ctrl+W')
+        exitAction.triggered.connect(self.close)
+
         file_menu.addAction(qcaFileAction)
         file_menu.addAction(embedFileAction)
         file_menu.addAction(chimeraFileAction)
+        file_menu.addSeparator()
+        file_menu.addAction(exitAction)
 
     def init_toolbar(self):
         ''' '''
@@ -160,3 +166,22 @@ class MainWindow(QtGui.QMainWindow):
         self.chimera_dir = fdir
 
         # do stuff
+
+    def keyPressEvent(self, e):
+        ''' '''
+
+        if e.key() == QtCore.Qt.Key_W:
+            self.close
+
+    def closeEvent(self, e):
+        '''Handle main window close event'''
+
+        reply = QtGui.QMessageBox.question(
+            self, 'Message', 'Are you sure you want to quit?',
+            QtGui.QMessageBox.Yes | QtGui.QMessageBox.Cancel,
+            QtGui.QMessageBox.Cancel)
+
+        if reply == QtGui.QMessageBox.Yes:
+            e.accept()
+        else:
+            e.ignore()

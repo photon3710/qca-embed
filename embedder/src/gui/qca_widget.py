@@ -42,11 +42,14 @@ class QCACellWidget(QtGui.QWidget):
             self.qdots.append([x, y])
 
         self.setGeometry(0, 0, settings.CELL_SIZE, settings.CELL_SIZE)
+        self.clicked = False
 
     def get_color(self):
         '''Determine the background color of the QCA Cell'''
 
-        # first check for cell type
+        # check if selected
+        if self.clicked:
+            return settings.QCA_COL['clicked']
         if self.type == 0:
             color = settings.QCA_COL['default']
         elif self.type == 1:    # input
@@ -88,6 +91,7 @@ class QCACellWidget(QtGui.QWidget):
     def mousePressEvent(self, e):
         ''' '''
         print('Clicked cell {0}'.format(self.num))
+        self.clicked = True
 
 
 class Canvas(QtGui.QWidget):

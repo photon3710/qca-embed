@@ -32,7 +32,8 @@ QCA_COL = {'default': QtGui.QColor(255, 255, 255),
            'inactive': QtGui.QColor(100, 100, 100),
            'output': QtGui.QColor(0, 200, 0),
            'input': QtGui.QColor(200, 0, 0),
-           'fixed': QtGui.QColor(255, 165, 0)}
+           'fixed': QtGui.QColor(255, 165, 0),
+           'clicked': QtGui.QColor(0, 150, 150)}
 
 DOT_RAD = 0.25*CELL_SIZE
 
