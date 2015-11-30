@@ -140,28 +140,23 @@ def prepare_convert_adj(cells, spacing, J):
     return Js, T, DX, DY
 
 
-def convert_to_full_adjacency(cells, spacing, J):
+def convert_to_full_adjacency(J, Js, T, DX, DY):
     '''Convert the J matrix from parse_qca to include only full adjacency
     interactions'''
-    
-    Js, T, DX, DY = prepare_convert_adj(cells, spacing, J)
     
     return J*(np.power(DX,2)+np.power(DY, 2) < R_MAX**2)
 
 
-def convert_to_lim_adjacency(cells, spacing, J):
+def convert_to_lim_adjacency(J, Js, T, DX, DY):
     '''Convert the J matrix from parse_qca to include only limited adjacency
     interactions'''
 
     STRONG_THRESH = 0.5
     WEAK_THRESH = 0.1
 
-    Js, T, DX, DY = prepare_convert_adj(cells, spacing, J)
-    Js = Js*(np.power(DX,2)+np.power(DY, 2) < R_MAX**2)
+    Js = np.array(Js*(np.power(DX,2)+np.power(DY, 2) < R_MAX**2))
 
     # count number of strong interactions
-    strong = [np.count_nonzero(np.abs(Js[i]) > STRONG_THRESH)
-                for i in xrange(len(cells))]
     
     # count number of weak interactions
     

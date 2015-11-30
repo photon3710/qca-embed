@@ -12,6 +12,8 @@
 from PyQt4 import QtGui, QtCore
 import gui_settings as settings
 from core.parse_qca import parse_qca_file
+from core.auxil import convert_to_full_adjacency, convert_to_lim_adjacency,\
+    prepare_convert_adj
 
 import numpy as np
 
@@ -230,6 +232,14 @@ class QCAWidget(QtGui.QScrollArea):
         # update J coefficients
         self.J = J
         self.J0 = J/np.max(np.abs(J))
+        self.use_lim = False
+        
+        # set up adjacency conversion variables
+        Js, T, DX, DY = prepare_convert_adj(cells, spacing, J)
+        self.convert_vars = {'Js': Js,
+                             'T': T,
+                             'DX': DX,
+                             'DY': DY}
 
         # find span and offset of circuit: currently inefficient
         x_min = min([cell['x'] for cell in cells])
@@ -258,7 +268,15 @@ class QCAWidget(QtGui.QScrollArea):
             self.addCell(cell)
 
         self.canvas.update()
-
+    
+    def setAdjacency(self, typ):
+        ''' '''
+        if typ == 'lim':
+            self.use_lim = True
+            self.J0 = convert_to_lim_adjacency(self.J, **self.convert_vars)
+        else:
+            self.use_lim = False
+            self.J0 = convert_to_full_adjacency(self.J, **self.convert_vars)
     def addCell(self, cell):
         ''' '''
         cell = QCACellWidget(self.canvas, cell,

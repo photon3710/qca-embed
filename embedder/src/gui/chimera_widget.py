@@ -11,6 +11,7 @@
 
 from PyQt4 import QtGui, QtCore
 import gui_settings as settings
+from core.chimera import load_chimera_file, linear_to_tuple
 
 
 class ChimeraNode(QtGui.QWidget):
@@ -80,6 +81,7 @@ class ChimeraNode(QtGui.QWidget):
         print('Node clicked...')
         self.tile.parent.onNodeClick(
             self.tile.m, self.tile.n, self.h, self.l)
+        self.tile.parent.mousePressEvent(e)
 
 
 class ChimeraTile(QtGui.QWidget):
@@ -93,7 +95,7 @@ class ChimeraTile(QtGui.QWidget):
         self.parent = parent    # ChimeraWidget
         self.m = m              # tile row
         self.n = n              # tile column
-        self.adj = adj          # internal adjacency list
+        self.adj = adj          # full circuit adjacency dict
 
         self.mouse_pos = None
         self.nodes = {}
@@ -102,8 +104,8 @@ class ChimeraTile(QtGui.QWidget):
         # initialise nodes
         for h in [True, False]:
             for l in xrange(4):
-                n = 4*(1 if h else 0)+l
-                active = len(adj[n]) > 0
+                key = (self.m, self.n, h, l)
+                active = len(adj[key]) > 0
                 if active:
                     node = ChimeraNode(self, h, l, active)
                     self.nodes[(h, l)] = node
@@ -123,6 +125,7 @@ class ChimeraTile(QtGui.QWidget):
             if max(abs(diff.x()), abs(diff.y())) < self.width():
                 # same tile release, select tile pass to
                 self.parent.onTileClick(self.m, self.n)
+        self.parent.mouseReleaseEvent(e)
 
     def getColor(self):
         '''Get the color of the tile'''
@@ -143,6 +146,10 @@ class ChimeraTile(QtGui.QWidget):
 
         painter.drawRect(self.geometry())
 
+    def drawLabel(self, painter):
+        
+        pen = QtGui.QPen(settings.CHIMERA_LABEL_COLOR)
+        painter.setPen(pen)
         painter.setFont(QtGui.QFont('Decorative',
                                     settings.CHIMERA_FONT_SIZE))
         painter.drawText(
@@ -156,24 +163,6 @@ class ChimeraTile(QtGui.QWidget):
         for key in self.nodes:
             node = self.nodes[key]
             node.drawNode(painter)
-
-    def drawEdges(self, painter):
-        '''Draw connectiones between nodes'''
-
-        pen = QtGui.QPen(QtGui.QColor(0, 0, 0, 255))
-        pen.setWidth(settings.CHIMERA_EDGE_WIDTH)
-        painter.setPen(pen)
-
-        dxy = settings.CHIMERA_NODE_RAD*self.width()
-        for i in xrange(7):
-            n1 = self.nodes[divmod(i, 4)]
-            x1 = self.x()+n1.x()+dxy
-            y1 = self.y()+n1.y()+dxy
-            for j in self.adj[i]:
-                n2 = self.nodes[divmod(j, 4)]
-                x2 = self.x()+n2.x()+dxy
-                y2 = self.y()+n2.y()+dxy
-                painter.drawLine(x1, y1, x2, y2)
 
 
 class Canvas(QtGui.QWidget):
@@ -193,32 +182,70 @@ class Canvas(QtGui.QWidget):
             tile = self.parent.tiles[key]
             tile.drawTile(painter)
 
-    def drawExternConnectors(self, painter):
+    def drawConnectors(self, painter):  # UGLY
         '''Draw connectors between tiles'''
-        pass
-        # still needs to be implemented
 
-    def drawInterns(self, painter):
+        pen = QtGui.QPen(QtGui.QColor(0, 0, 0, 255))
+        pen.setWidth(settings.CHIMERA_EDGE_WIDTH)
+        painter.setPen(pen)
+
+        # for each tile, draw internal edges and all edges to higher
+        # indexed tiles
+        for m1, n1 in self.parent.tiles:
+            tile1 = self.parent.tiles[(m1, n1)]
+            dxy = settings.CHIMERA_NODE_RAD*tile1.width()
+            for h1, l1 in tile1.nodes:
+                node1 = tile1.nodes[(h1, l1)]
+                x1 = tile1.x() + node1.x() + dxy
+                y1 = tile1.y() + node1.y() + dxy
+                for m2, n2, h2, l2 in self.parent.adj[(m1, n1, h1, l1)]:
+                    # only draw internal connections once
+                    if m1 == m2 and n1 == n2 and h2:
+                        node2 = tile1.nodes[(h2, l2)]
+                        x2 = tile1.x() + node2.x() + dxy
+                        y2 = tile1.y() + node2.y() + dxy
+                        painter.drawLine(x1, y1, x2, y2)
+                    # only draw external connections once
+                    elif m2 > m1 or n2 > n1:
+                        tile2 = self.parent.tiles[(m2, n2)]
+                        node2 = tile2.nodes[(h2, l2)]
+                        x2 = tile2.x() + node2.x() + dxy
+                        y2 = tile2.y() + node2.y() + dxy
+                        painter.drawLine(x1, y1, x2, y2)
+
+    def drawNodes(self, painter):
         ''' '''
 
         for key in self.parent.tiles:
             m, n = key
             tile = self.parent.tiles[key]
-            tile.drawEdges(painter)
             tile.drawNodes(painter)
+            
+    def drawLabels(self, painter):
+        ''' '''
+        
+        for key in self.parent.tiles:
+            m, n = key
+            tile = self.parent.tiles[key]
+            tile.drawLabel(painter)
 
     def paintEvent(self, e):
+        ''' '''
+        
         painter = QtGui.QPainter()
         painter.begin(self)
 
         # draw tile background
         self.drawTiles(painter)
 
-        # draw external connector
-        self.drawExternConnectors(painter)
+        # draw connectors
+        self.drawConnectors(painter)
 
-        # draw tile connects
-        self.drawInterns(painter)
+        # draw nodes
+        self.drawNodes(painter)
+        
+        # draw tile labels
+        self.drawLabels(painter)
 
         painter.end()
 
@@ -235,12 +262,13 @@ class ChimeraWidget(QtGui.QScrollArea):
         self.clicked_tile = None    # pair of indices for selected tile
         self.active_graph = None    # graph into which to run embedding
         self.tiles = {}
+        self.adj = {}
 
         self.mouse_pos = None
 
         self.initUI()
 
-        self.updateChimera(2)   # test: 2 should force error when implemented
+        self.updateChimera(settings.CHIMERA_DEFAULT_FILE)
 
     def initUI(self):
         '''Initialise UI'''
@@ -253,9 +281,11 @@ class ChimeraWidget(QtGui.QScrollArea):
     def updateChimera(self, filename):
         '''Process a chimera specification file and update the widget'''
 
-        # placeholder code until chimera read functionality implemented
-        M = 12
-        N = 12
+        try:
+            M, N, adj = load_chimera_file(filename)
+        except IOError:
+            print('Failed to load given file...')
+            return
 
         # forget old grid layout
         for tile in self.tiles:
@@ -263,7 +293,7 @@ class ChimeraWidget(QtGui.QScrollArea):
         self.tiles = {}
 
         while self.layout.count():
-            item = layout.takeAt(0)
+            item = self.layout.takeAt(0)
             item.widget().deleteLater()
 
         # resize canvas
@@ -271,8 +301,13 @@ class ChimeraWidget(QtGui.QScrollArea):
         height = M*settings.CHIMERA_TILE_SIZE
 
         self.canvas.setGeometry(0, 0, width, height)
+        
+        # convert adjacency dict to tuple format
+        adj = {linear_to_tuple(k, M, N):\
+            [linear_to_tuple(a, M, N) for a in adj[k]] for k in adj}
+            
+        self.adj = adj
 
-        adj = [[4, 5, 6, 7]]*4 + [[0, 1, 2, 3]]*4
         for m in xrange(M):
             for n in xrange(N):
                 tile = ChimeraTile(self, m, n, adj=adj)
@@ -337,9 +372,22 @@ class ChimeraWidget(QtGui.QScrollArea):
 
     def keyPressEvent(self, e):
         ''' '''
-
+        scroll_delta = settings.CHIMERA_TILE_SIZE
         if e.key() == QtCore.Qt.Key_Shift:
             self.shift = True
+        elif e.key() == QtCore.Qt.Key_Left:
+            self.horizontalScrollBar().setValue(
+                self.horizontalScrollBar().value() - scroll_delta)
+        elif e.key() == QtCore.Qt.Key_Right:
+            self.horizontalScrollBar().setValue(
+                self.horizontalScrollBar().value() + scroll_delta)
+        elif e.key() == QtCore.Qt.Key_Up:
+            self.verticalScrollBar().setValue(
+                self.verticalScrollBar().value() - scroll_delta)
+        elif e.key() == QtCore.Qt.Key_Down:
+            self.verticalScrollBar().setValue(
+                self.verticalScrollBar().value() + scroll_delta)
+            
 
     def keyReleaseEvent(self, e):
         '''Reset key flags'''
