@@ -198,6 +198,9 @@ class QCAWidget(QtGui.QScrollArea):
 
         # mouse tracking
         self.mouse_pos = None
+        self.zoom_flag = False
+
+        # initialise UI
         self.initUI()
 
         if filename is not None:
@@ -205,11 +208,6 @@ class QCAWidget(QtGui.QScrollArea):
 
     def initUI(self):
         ''' '''
-
-        # parameters
-        self.mouse_pos = None
-        self.cells = []
-        self.zoom_flag = False
 
         # create main widget
         self.canvas = Canvas(self)
@@ -276,7 +274,7 @@ class QCAWidget(QtGui.QScrollArea):
         self.cells[num].clicked = True
 
         self.canvas.update()
-        print('Detected click on cell {0}'.format(num))
+#        print('Detected click on cell {0}'.format(num))
 
     # interrupts
 

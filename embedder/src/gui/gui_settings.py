@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 # -----------------------------------
-# Name: application.py
-# Desc: Main loop for QCA embedder application
+# Name: gui_settings.py
+# Desc: GUI settings for embedder application
 # Author: Jake Retallick
 # Created: 2015.11.25
 # Modified: 2015.11.25
@@ -12,12 +12,12 @@
 from PyQt4 import QtGui, QtCore
 
 # MAIN WINDOW SETTINGS
-WIN_DX = 1200   # width of the main window
-WIN_DY = 600    # height of the main window
+WIN_DX = 1400   # width of the main window
+WIN_DY = 800    # height of the main window
 WIN_X0 = 100    # x-offset of the main window
 WIN_Y0 = 100    # y-offset of the main window
 
-ICO_SIZE = 30           # icon size
+ICO_SIZE = 50           # icon size
 ICO_DIR = './gui/ico/'   # icon directory
 
 BUTTON_SIZE = 25    # size of buttons
@@ -53,3 +53,21 @@ MAG_STEP = 0.1          # magnification step
 MAG_WHEEL_FACT = 0.2    # factor for wheel zoom\
 
 QCA_CANVAS_OFFSET = 0.3
+
+# CHIMERA PARAMETERS
+
+CHIMERA_TILE_SIZE = 100
+CHIMERA_NODE_RAD = 0.07
+CHIMERA_PEN_WIDTH = 0.01*CHIMERA_TILE_SIZE
+CHIMERA_NODE_OFFSET = 0.12
+CHIMERA_NODE_DELTA = 0.20
+CHIMERA_EDGE_WIDTH = 0.02*CHIMERA_TILE_SIZE
+CHIMERA_FONT_SIZE = 0.1*CHIMERA_TILE_SIZE
+CHIMERA_LABEL_OFFSET = 0.05*CHIMERA_TILE_SIZE
+
+CHIMERA_COL = {'tile': QtGui.QColor(220, 220, 220),
+               'tile-selected': QtGui.QColor(170, 170, 170),
+               'active': QtGui.QColor(255, 255, 255),
+               'inactive': QtGui.QColor(255, 255, 255, 0),
+               'used': QtGui.QColor(0, 150, 0),
+               'clicked': QtGui.QColor(150, 150, 0)}

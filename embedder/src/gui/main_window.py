@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
 # -----------------------------------
-# Name: application.py
-# Desc: Main loop for QCA embedder application
+# Name: maiMain Window widget for embedder application
 # Author: Jake Retallick
 # Created: 2015.11.25
 # Modified: 2015.11.25
