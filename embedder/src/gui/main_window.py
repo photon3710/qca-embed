@@ -164,7 +164,7 @@ class MainWindow(QtGui.QMainWindow):
         fdir = os.path.dirname(fname)
         self.chimera_dir = fdir
 
-        # do stuff
+        self.chimera_widget.updateChimera(fname)
 
     def closeEvent(self, e):
         '''Handle main window close event'''

@@ -289,7 +289,7 @@ class ChimeraWidget(QtGui.QScrollArea):
 
         # forget old grid layout
         for tile in self.tiles:
-            tile.setParent(None)
+            self.tiles[tile].setParent(None)
         self.tiles = {}
 
         while self.layout.count():
