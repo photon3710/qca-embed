@@ -167,12 +167,6 @@ class MainWindow(QtGui.QMainWindow):
 
         # do stuff
 
-    def keyPressEvent(self, e):
-        ''' '''
-
-        if e.key() == QtCore.Qt.Key_W:
-            self.close
-
     def closeEvent(self, e):
         '''Handle main window close event'''
 
