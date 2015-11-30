@@ -32,6 +32,10 @@ class MainWindow(QtGui.QMainWindow):
         self.qca_dir = os.getcwd()
         self.embed_dir = os.getcwd()
         self.chimera_dir = os.getcwd()
+        
+        # functionality paremeters
+        self.qca_active = False     # True when QCAWidget set
+        self.full_adj = True        # True when using full adjacency
 
         # main window parameters
         geo = [settings.WIN_X0, settings.WIN_Y0,
@@ -69,9 +73,9 @@ class MainWindow(QtGui.QMainWindow):
         menubar = self.menuBar()
 
         file_menu = menubar.addMenu('&File')
-        tool_menu = menubar.addMenu('&Tools')
-        view_menu = menubar.addMenu('&View')
-        help_menu = menubar.addMenu('&Help')
+#        tool_menu = menubar.addMenu('&Tools')
+#        view_menu = menubar.addMenu('&View')
+#        help_menu = menubar.addMenu('&Help')
 
         # construct actions
 
@@ -95,7 +99,7 @@ class MainWindow(QtGui.QMainWindow):
         exitAction.triggered.connect(self.close)
 
         file_menu.addAction(qcaFileAction)
-        file_menu.addAction(embedFileAction)
+#        file_menu.addAction(embedFileAction)
         file_menu.addAction(chimeraFileAction)
         file_menu.addSeparator()
         file_menu.addAction(exitAction)
@@ -125,10 +129,18 @@ class MainWindow(QtGui.QMainWindow):
             QtGui.QIcon(settings.ICO_DIR+'chimera_file.png'))
         action_chimera_file.setStatusTip('Open chimera file...')
         action_chimera_file.triggered.connect(self.load_chimera_file)
+        
+        self.action_switch_adj = QtGui.QAction(self)
+        self.action_switch_adj.setIcon(
+            QtGui.QIcon(settings.ICO_DIR+'lim_adj.png'))
+        self.action_switch_adj.setStatusTip('Switch to Limited Adjacency...')
+        self.action_switch_adj.triggered.connect(self.switch_adjacency)
+        self.action_switch_adj.setEnabled(False)
 
         toolbar.addAction(action_qca_file)
-        toolbar.addAction(action_embed_file)
+#        toolbar.addAction(action_embed_file)
         toolbar.addAction(action_chimera_file)
+        toolbar.addAction(self.action_switch_adj)
 
     def load_qca_file(self):
         '''Prompt filename for qca file'''
@@ -141,6 +153,10 @@ class MainWindow(QtGui.QMainWindow):
         self.qca_dir = fdir
 
         self.qca_widget.updateCircuit(fname)
+        
+        if not self.qca_active:
+            self.qca_active = True
+            self.action_switch_adj.setEnabled(True)
 
     def load_embed_file(self):
         '''Prompt filename for embed file'''
@@ -165,6 +181,16 @@ class MainWindow(QtGui.QMainWindow):
         self.chimera_dir = fdir
 
         self.chimera_widget.updateChimera(fname)
+        
+    def switch_adjacency(self):
+        ''' '''
+        
+        if self.qca_active:
+            self.full_adj = not self.full_adj
+            ico_file = 'lim_adj.png' if self.full_adj else 'full_adj.png'
+            self.action_switch_adj.setIcon(
+                QtGui.QIcon(settings.ICO_DIR+ico_file))
+            self.qca_widget.setAdjacency('full' if self.full_adj else 'lim')
 
     def closeEvent(self, e):
         '''Handle main window close event'''

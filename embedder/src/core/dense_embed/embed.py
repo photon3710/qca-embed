@@ -1670,6 +1670,7 @@ def selectSeam(seam_dicts):
     return cands[int(random()*len(cands))]
 
 
+# NEW METHODS FOR WIRE SHORTENING
 def shorten_wire_paths():
     '''find the wires. Find a qbit path for each wire that most resemble's
     the length of the wire path. To do this, find the shortest possible path

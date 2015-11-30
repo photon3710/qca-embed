@@ -25,7 +25,8 @@ CELL_MODES = {'QCAD_CELL_MODE_NORMAL': 0,
               'QCAD_CELL_MODE_VERTICAL': 2,
               'QCAD_CELL_MODE_CLUSTER': 3}
 
-R_MAX = 1.8         # maximum interaction range
+R_MAX = 1.8             # maximum interaction range
+STRONG_THRESH = 0.5     # threshold for qualifying as a strong interaction
 
 
 ### GENERAL FUNCTIONS
@@ -140,6 +141,31 @@ def prepare_convert_adj(cells, spacing, J):
     return Js, T, DX, DY
 
 
+def identify_inverters(Js):
+    '''Identify inverter cells'''
+    
+    J0 = Js/np.max(np.abs(Js))
+    
+    # an inverter is a cell with one strong interaction and two weak
+    # interactions, each having one strong interaction
+    invs = {}
+
+    # count number of strong interactions for each cell
+    num_strong = [np.count_nonzero(np.abs(J0[i]) > STRONG_THRESH) 
+        for i in xrange(J0.shape[0])]
+    
+    for c1 in xrange(J0.shape[0]):
+        if num_strong[c1] == 1:   # check if an inverter
+            adj = []
+            for c2 in J0[c1].nonzero()[0].tolist():
+                if np.abs(J0[c1, c2]) < STRONG_THRESH and num_strong[c2]==1:
+                    adj.append(c2)
+            if len(adj) == 1:
+                invs[c1] = adj
+    
+    return invs
+            
+
 def convert_to_full_adjacency(J, Js, T, DX, DY):
     '''Convert the J matrix from parse_qca to include only full adjacency
     interactions'''
@@ -151,13 +177,20 @@ def convert_to_lim_adjacency(J, Js, T, DX, DY):
     '''Convert the J matrix from parse_qca to include only limited adjacency
     interactions'''
 
-    STRONG_THRESH = 0.5
-    WEAK_THRESH = 0.1
+    # start with full adjacency representation
+    Js = np.array(convert_to_full_adjacency(J, Js, T, DX, DY))
+    Js /= np.max(np.abs(Js))
 
-    Js = np.array(Js*(np.power(DX,2)+np.power(DY, 2) < R_MAX**2))
-
-    # count number of strong interactions
+    # get inverters and their included diagonal interactions
+    invs = identify_inverters(Js)
     
-    # count number of weak interactions
+    # forget all non-strong interactions
+    Js = Js*(np.abs(Js) > STRONG_THRESH)
+    
+    # add the inverter interaction back in
+    for c1 in invs:
+        for c2 in invs[c1]:
+            Js[c1][c2] = 1
+            Js[c2][c1] = 1
     
     return J*(Js != 0)

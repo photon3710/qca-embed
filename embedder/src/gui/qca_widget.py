@@ -216,7 +216,7 @@ class QCAWidget(QtGui.QScrollArea):
         self.canvas.setGeometry(0, 0, 0, 0)
         self.setWidget(self.canvas)
 
-    def updateCircuit(self, filename):
+    def updateCircuit(self, filename, adj_typ='full'):
         ''' '''
 
         try:
@@ -231,8 +231,6 @@ class QCAWidget(QtGui.QScrollArea):
 
         # update J coefficients
         self.J = J
-        self.J0 = J/np.max(np.abs(J))
-        self.use_lim = False
         
         # set up adjacency conversion variables
         Js, T, DX, DY = prepare_convert_adj(cells, spacing, J)
@@ -240,6 +238,9 @@ class QCAWidget(QtGui.QScrollArea):
                              'T': T,
                              'DX': DX,
                              'DY': DY}
+        
+        # set adjacency type
+        self.setAdjacency(adj_typ, update=False)  # sets full_adj and J0
 
         # find span and offset of circuit: currently inefficient
         x_min = min([cell['x'] for cell in cells])
@@ -269,14 +270,20 @@ class QCAWidget(QtGui.QScrollArea):
 
         self.canvas.update()
     
-    def setAdjacency(self, typ):
+    def setAdjacency(self, typ, update=True):
         ''' '''
         if typ == 'lim':
-            self.use_lim = True
+            self.full_adj = False
             self.J0 = convert_to_lim_adjacency(self.J, **self.convert_vars)
         else:
-            self.use_lim = False
+            self.full_adj = True
             self.J0 = convert_to_full_adjacency(self.J, **self.convert_vars)
+
+        self.J0 /= np.max(np.abs(self.J0))
+
+        if update:
+            self.canvas.update()
+
     def addCell(self, cell):
         ''' '''
         cell = QCACellWidget(self.canvas, cell,
