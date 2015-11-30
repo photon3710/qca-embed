@@ -46,6 +46,7 @@ class QCACellWidget(QtGui.QWidget):
 
         self.setGeometry(0, 0, settings.CELL_SIZE, settings.CELL_SIZE)
         self.clicked = False
+        self.mouse_pos = None
 
     def get_color(self):
         '''Determine the background color of the QCA Cell'''
@@ -93,8 +94,17 @@ class QCACellWidget(QtGui.QWidget):
 
     def mousePressEvent(self, e):
         ''' '''
-#        print('Clicked cell {0}'.format(self.num))
-        self.qca_widget.onClick(self.num)
+        self.mouse_pos = e.pos()
+        self.parent.mousePressEvent(e)
+
+    def mouseReleaseEvent(self, e):
+        ''' '''
+        if self.mouse_pos is not None:
+            diff = e.pos()-self.mouse_pos
+            if max(abs(diff.x()), abs(diff.y())) < settings.CELL_SIZE:
+                self.qca_widget.onClick(self.num)
+        self.mouse_pos = None
+        self.parent.mouseReleaseEvent(e)
 
 
 class Canvas(QtGui.QWidget):
@@ -118,9 +128,6 @@ class Canvas(QtGui.QWidget):
         self.drawConnections(painter)
         self.drawCells(painter)
         painter.end()
-
-    def mousePressEvent(self, e):
-        self.parent.mousePressEvent(e)
 
     def mouseDoubleClickEvent(self, e):
         ''' '''
@@ -286,6 +293,11 @@ class QCAWidget(QtGui.QScrollArea):
                 self.verticalScrollBar().value()-diff.y())
             self.horizontalScrollBar().setValue(
                 self.horizontalScrollBar().value()-diff.x())
+
+    def mouseReleaseEvent(self, e):
+        '''On mouse release, forget old mouse position to avoid
+        jumping'''
+        self.mouse_pos = None
 
     def keyPressEvent(self, e):
         ''' '''
