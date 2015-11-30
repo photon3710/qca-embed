@@ -188,8 +188,11 @@ class MainWindow(QtGui.QMainWindow):
         if self.qca_active:
             self.full_adj = not self.full_adj
             ico_file = 'lim_adj.png' if self.full_adj else 'full_adj.png'
+            sub_message = 'Limited' if self.full_adj else 'Full'
             self.action_switch_adj.setIcon(
                 QtGui.QIcon(settings.ICO_DIR+ico_file))
+            self.action_switch_adj.setStatusTip(
+                'Switch to {0} Adjacency...'.format(sub_message))
             self.qca_widget.setAdjacency('full' if self.full_adj else 'lim')
 
     def closeEvent(self, e):
