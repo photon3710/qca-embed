@@ -26,6 +26,7 @@ class ChimeraNode(QtGui.QWidget):
         super(ChimeraNode, self).__init__(tile)
 
         self.tile = tile
+        self.used = False       # flag if node is taken by an embedding
         self.active = active    # flag determines whether node is active
         self.h = h
         self.l = l
@@ -260,7 +261,7 @@ class ChimeraWidget(QtGui.QScrollArea):
         # parameters
         self.shift = False          # flag for shift pressed
         self.clicked_tile = None    # pair of indices for selected tile
-        self.active_graph = None    # graph into which to run embedding
+        self.active_range = None    # range of tiles in active graph
         self.tiles = {}
         self.adj = {}
 
@@ -305,7 +306,9 @@ class ChimeraWidget(QtGui.QScrollArea):
         # convert adjacency dict to tuple format
         adj = {linear_to_tuple(k, M, N):\
             [linear_to_tuple(a, M, N) for a in adj[k]] for k in adj}
-            
+
+        self.M = M
+        self.N = N
         self.adj = adj
 
         for m in xrange(M):
@@ -325,8 +328,7 @@ class ChimeraWidget(QtGui.QScrollArea):
         if self.clicked_tile is not None and self.shift:
             # select subgraph
             if self.clicked_tile != (m, n):
-                self.active_graph = self.getActiveGraph(
-                    self.clicked_tile, (m, n))
+                self.setActiveRange(self.clicked_tile, (m, n))
                 self.canvas.update()
         else:
             # first corner of subgraph
@@ -335,29 +337,31 @@ class ChimeraWidget(QtGui.QScrollArea):
             for key in self.tiles:
                 self.tiles[key].selected = False
             # update selected subgraph
-            self.active_graph = self.getActiveGraph((m, n), None)
+            self.setActiveRange((m, n), None)
             self.canvas.update()
 
     def onNodeClick(self, m, n, h, l):
         '''On node click'''
         pass
 
-    def getActiveGraph(self, tile1, tile2):
-        '''Isolate the subgraph between the selected corners'''
+    def setActiveRange(self, tile1, tile2):
+        '''Set the active range of the chimera graph'''
 
         # find range of selected tiles
         if tile2 is None:
-            ry = [tile1[0], tile1[0]]
-            rx = [tile1[1], tile1[1]]
+            ry = [tile1[0], tile1[0]+1]
+            rx = [tile1[1], tile1[1]+1]
         else:
-            ry = [min(tile1[0], tile2[0]), max(tile1[0], tile2[0])]
-            rx = [min(tile1[1], tile2[1]), max(tile1[1], tile2[1])]
+            ry = [min(tile1[0], tile2[0]), max(tile1[0], tile2[0])+1]
+            rx = [min(tile1[1], tile2[1]), max(tile1[1], tile2[1])+1]
 
         # for now just select tiles
-        for m in xrange(ry[0], ry[1]+1):
-            for n in xrange(rx[0], rx[1]+1):
-                print m, n
+        for m in xrange(ry[0], ry[1]):
+            for n in xrange(rx[0], rx[1]):
                 self.tiles[(m, n)].selected = True
+        
+        self.active_range = {'M': ry,
+                             'N': rx}
 
     def releaseSelection(self):
         ''' '''
@@ -366,9 +370,48 @@ class ChimeraWidget(QtGui.QScrollArea):
             self.tiles[key].selected = False
 
         self.clicked_tile = None
-        self.active_graph = None
+        self.active_range = None
 
         self.canvas.update()
+        
+    def getActiveGraph(self):
+        '''Return the adjacency matrix of active range of the chimera graph'''
+        
+        if self.active_range is None:
+            return self.M, self.N, self.adj, self.active_range
+        
+        M = self.active_range['M'][1] - self.active_range['M'][0]
+        N = self.active_range['N'][1] - self.active_range['N'][0]
+        
+        # define check functions
+        tile_check = lambda m, n, h, l: \
+            m >= self.active_range['M'][0] and\
+            m < self.active_range['M'][1] and\
+            n >= self.active_range['N'][0] and\
+            n < self.active_range['N'][1]
+        
+        node_check = lambda m, n, h, l: tile_check(m, n, h, l) and\
+            len(self.adj[(m, n, h, l)]) > 0 and\
+            not self.tiles[(m, n)].nodes[(h, l)].used
+
+        # include only nodes within active range
+        adj = {k1: [] for k1 in self.adj if tile_check(*k1)}
+        
+        for k1 in adj:
+            if node_check(*k1):
+                adj[k1] = [k2 for k2 in self.adj[k1] if node_check(*k2)]
+
+        # offset adjacency list to zero
+        dm = self.active_range['M'][0]
+        dn = self.active_range['N'][0]
+        
+        offset = lambda m, n, h, l: (m-dm, n-dn, h, l)
+
+        adj = {offset(*k1): [offset(*k2) for k2 in adj[k1]] for k1 in adj}
+        
+        return M, N, adj, self.active_range
+
+    # EVENT HANDLERS
 
     def keyPressEvent(self, e):
         ''' '''
@@ -388,7 +431,6 @@ class ChimeraWidget(QtGui.QScrollArea):
             self.verticalScrollBar().setValue(
                 self.verticalScrollBar().value() + scroll_delta)
             
-
     def keyReleaseEvent(self, e):
         '''Reset key flags'''
 

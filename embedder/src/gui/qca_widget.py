@@ -301,6 +301,11 @@ class QCAWidget(QtGui.QScrollArea):
         self.canvas.update()
 #        print('Detected click on cell {0}'.format(num))
 
+
+    def prepareCircuit(self):
+        '''Return needed parameters for embedding'''
+        pass
+
     # interrupts
 
     def mousePressEvent(self, e):
