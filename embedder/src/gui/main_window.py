@@ -38,6 +38,7 @@ class MainWindow(QtGui.QMainWindow):
         # functionality paremeters
         self.qca_active = False     # True when QCAWidget set
         self.full_adj = True        # True when using full adjacency
+        self.use_dense = True       # True if using Dense Placement embedder
 
         # main window parameters
         geo = [settings.WIN_X0, settings.WIN_Y0,
@@ -75,14 +76,14 @@ class MainWindow(QtGui.QMainWindow):
         menubar = self.menuBar()
 
         file_menu = menubar.addMenu('&File')
-#        tool_menu = menubar.addMenu('&Tools')
+        tool_menu = menubar.addMenu('&Tools')
 #        view_menu = menubar.addMenu('&View')
 #        help_menu = menubar.addMenu('&Help')
 
         # construct actions
 
         qcaFileAction = QtGui.QAction(
-            QtGui.QIcon(settings.ICO_DIR+'qca.png'),
+            QtGui.QIcon(settings.ICO_DIR+'qca_file.png'),
             'Open QCA file...', self)
         qcaFileAction.triggered.connect(self.load_qca_file)
 
@@ -92,19 +93,31 @@ class MainWindow(QtGui.QMainWindow):
         embedFileAction.triggered.connect(self.load_embed_file)
 
         chimeraFileAction = QtGui.QAction(
-            QtGui.QIcon(settings.ICO_DIR+'chimera.png'),
+            QtGui.QIcon(settings.ICO_DIR+'chimera_file.png'),
             'Open chimera file...', self)
         chimeraFileAction.triggered.connect(self.load_chimera_file)
 
         exitAction = QtGui.QAction('Exit', self)
         exitAction.setShortcut('Ctrl+W')
         exitAction.triggered.connect(self.close)
+        
+        self.action_dense_embed_flag = QtGui.QAction('Dense', self)
+        self.action_dense_embed_flag.triggered.connect(self.switch_embedder)
+        self.action_dense_embed_flag.setEnabled(False)
+        
+        self.action_heur_embed_flag = QtGui.QAction('Heuristic', self)
+        self.action_heur_embed_flag.triggered.connect(self.switch_embedder)
+        self.action_heur_embed_flag.setEnabled(True)
 
         file_menu.addAction(qcaFileAction)
 #        file_menu.addAction(embedFileAction)
         file_menu.addAction(chimeraFileAction)
         file_menu.addSeparator()
         file_menu.addAction(exitAction)
+        
+        embedder_menu = tool_menu.addMenu('Embedding method')
+        embedder_menu.addAction(self.action_dense_embed_flag)
+        embedder_menu.addAction(self.action_heur_embed_flag)
 
     def init_toolbar(self):
         ''' '''
@@ -206,6 +219,13 @@ class MainWindow(QtGui.QMainWindow):
             self.action_switch_adj.setStatusTip(
                 'Switch to {0} Adjacency...'.format(sub_message))
             self.qca_widget.setAdjacency('full' if self.full_adj else 'lim')
+        
+    def switch_embedder(self):
+        '''Change between embedding algorithms and set menu enabling'''
+        
+        self.action_dense_embed_flag.setEnabled(self.use_dense)
+        self.action_heur_embed_flag.setEnabled(not self.use_dense)
+        self.use_dense = not self.use_dense
         
     def embed_circuit(self):
         '''Run embedding on displayed circuit into selected chimera 

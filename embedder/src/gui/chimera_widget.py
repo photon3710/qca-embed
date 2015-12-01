@@ -82,7 +82,6 @@ class ChimeraNode(QtGui.QWidget):
         print('Node clicked...')
         self.tile.parent.onNodeClick(
             self.tile.m, self.tile.n, self.h, self.l)
-        self.tile.parent.mousePressEvent(e)
 
 
 class ChimeraTile(QtGui.QWidget):
@@ -330,6 +329,7 @@ class ChimeraWidget(QtGui.QScrollArea):
             if self.clicked_tile != (m, n):
                 self.setActiveRange(self.clicked_tile, (m, n))
                 self.canvas.update()
+                self.click_tile = None
         else:
             # first corner of subgraph
             self.clicked_tile = (m, n)
