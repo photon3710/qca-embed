@@ -31,6 +31,7 @@ class ChimeraNode(QtGui.QWidget):
         self.h = h
         self.l = l
         self.n = 4*(0 if h else 1)+l    # index of node within tile
+        self.mouse_pos = None
 
         # determine center position within tile
         if l < 2:
@@ -45,6 +46,8 @@ class ChimeraNode(QtGui.QWidget):
 
         if not self.active:
             color = settings.CHIMERA_COL['inactive']
+        elif self.used:
+            color = settings.CHIMERA_COL['used']
         else:
             color = settings.CHIMERA_COL['active']
         return color
@@ -79,9 +82,17 @@ class ChimeraNode(QtGui.QWidget):
         painter.drawEllipse(rect)
 
     def mousePressEvent(self, e):
-        print('Node clicked...')
-        self.tile.parent.onNodeClick(
-            self.tile.m, self.tile.n, self.h, self.l)
+        ''' '''
+        self.mouse_pos = e.pos()
+        self.tile.parent.mousePressEvent(e)
+
+    def mouseReleaseEvent(self, e):
+        if self.mouse_pos is not None:
+            diff = e.pos() - self.mouse_pos
+            if max(abs(diff.x()), abs(diff.y())) < self.width():
+                self.tile.parent.onNodeClick(
+                    self.tile.m, self.tile.n, self.h, self.l)
+        self.mouse_pos = None
 
 
 class ChimeraTile(QtGui.QWidget):
@@ -325,6 +336,9 @@ class ChimeraWidget(QtGui.QScrollArea):
         select.'''
 
         if self.clicked_tile is not None and self.shift:
+            # unselected all other tiles
+            for key in self.tiles:
+                self.tiles[key].selected = False
             # select subgraph
             if self.clicked_tile != (m, n):
                 self.setActiveRange(self.clicked_tile, (m, n))
@@ -342,7 +356,11 @@ class ChimeraWidget(QtGui.QScrollArea):
 
     def onNodeClick(self, m, n, h, l):
         '''On node click'''
-        pass
+        
+        tile = self.tiles[(m, n)]
+        node = tile.nodes[(h, l)]
+        node.used = not node.used
+        self.canvas.update(tile.geometry())
 
     def setActiveRange(self, tile1, tile2):
         '''Set the active range of the chimera graph'''

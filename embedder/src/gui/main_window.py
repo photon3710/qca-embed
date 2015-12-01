@@ -15,7 +15,7 @@ import gui_settings as settings
 from qca_widget import QCAWidget
 from chimera_widget import ChimeraWidget
 
-#from pprint import pprint
+from pprint import pprint
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -237,6 +237,8 @@ class MainWindow(QtGui.QMainWindow):
         
         # get chimera sub-graph
         M, N, adj, active_range = self.chimera_widget.getActiveGraph()
+        
+        pprint(adj)
 
     def closeEvent(self, e):
         '''Handle main window close event'''
