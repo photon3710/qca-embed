@@ -300,13 +300,16 @@ class QCAWidget(QtGui.QScrollArea):
         self.cells.append(cell)
         cell.show()
 
-    def onClick(self, num):
+    def onClick(self, cell):
         '''Response to clicking on one the QCA cells'''
+        if self.cells[cell].driver or self.cells[cell].fixed:
+            return
 
-        self.selectCell(num)
-        
-        # make changes in chimera widget
-
+        if self.parent.active_embedding != -1:
+            self.selectCell(cell)
+            # make changes in chimera widget
+            embedding = self.parent.embeddings[self.parent.active_embedding]
+            self.parent.chimera_widget.selectNodes(embedding, cell)
 
     def selectCell(self, num):
         ''' '''

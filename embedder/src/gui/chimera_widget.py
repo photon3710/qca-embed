@@ -26,7 +26,7 @@ class ChimeraNode(QtGui.QWidget):
         super(ChimeraNode, self).__init__(tile)
 
         self.tile = tile        # Tile containing the node
-        
+
         self.cell = None            # cell with model containing the node
         self.embedding_ind = None   # embedding index
         self.used = False           # flag if node is taken by an embedding
@@ -92,7 +92,7 @@ class ChimeraNode(QtGui.QWidget):
         painter.setBrush(brush)
 
         painter.drawEllipse(rect)
-        
+
     def setUsed(self, ind, cell):
         ''' '''
         self.used = True
@@ -175,7 +175,7 @@ class ChimeraTile(QtGui.QWidget):
         painter.drawRect(self.geometry())
 
     def drawLabel(self, painter):
-        
+
         pen = QtGui.QPen(settings.CHIMERA_LABEL_COLOR)
         painter.setPen(pen)
         painter.setFont(QtGui.QFont('Decorative',
@@ -248,10 +248,10 @@ class Canvas(QtGui.QWidget):
             m, n = key
             tile = self.parent.tiles[key]
             tile.drawNodes(painter)
-            
+
     def drawLabels(self, painter):
         ''' '''
-        
+
         for key in self.parent.tiles:
             m, n = key
             tile = self.parent.tiles[key]
@@ -259,7 +259,7 @@ class Canvas(QtGui.QWidget):
 
     def paintEvent(self, e):
         ''' '''
-        
+
         painter = QtGui.QPainter()
         painter.begin(self)
 
@@ -271,7 +271,7 @@ class Canvas(QtGui.QWidget):
 
         # draw nodes
         self.drawNodes(painter)
-        
+
         # draw tile labels
         self.drawLabels(painter)
 
@@ -331,7 +331,7 @@ class ChimeraWidget(QtGui.QScrollArea):
         height = M*settings.CHIMERA_TILE_SIZE
 
         self.canvas.setGeometry(0, 0, width, height)
-        
+
         # convert adjacency dict to tuple format
         adj = {linear_to_tuple(k, M, N):\
             [linear_to_tuple(a, M, N) for a in adj[k]] for k in adj}
@@ -385,22 +385,33 @@ class ChimeraWidget(QtGui.QScrollArea):
                     redraw = True
             if redraw:
                 self.canvas.update(tile.geometry())
-                    
-                
+
+
     def onNodeClick(self, node):
         '''On node click'''
-        
+
         if not node.used:
             return
 
         cell = node.cell
         embedding = self.parent.embeddings[node.embedding_ind]
-        
+        self.selectNodes(embedding, cell)
+
+        # make changes to QCA widget
+        if self.parent.active_embedding != node.embedding_ind:
+            self.parent.switchEmbedding(node.embedding_ind)
+
+        # highligh corresponding cell in QCAWidget
+        self.parent.qca_widget.selectCell(cell)
+
+    def selectNodes(self, embedding, cell):
+        '''Select the nodes corresponding to a cell in an embedding'''
+
         active_range = embedding.active_range
-        
+
         # unset all other nodes
         self.unclickNodes()
-        
+
         # set all nodes of the circuit as local
         tiles = set()
         for c1 in embedding.models:
@@ -416,13 +427,6 @@ class ChimeraWidget(QtGui.QScrollArea):
 
         for m, n in tiles:
             self.canvas.update(self.tiles[(m, n)].geometry())
-        
-        # make changes to QCA widget
-        if self.parent.active_embedding != node.embedding_ind:
-            self.parent.switchEmbedding(node.embedding_ind)
-
-        # highligh corresponding cell in QCAWidget
-        self.parent.qca_widget.selectCell(cell)
 
     def setActiveRange(self, tile1, tile2):
         '''Set the active range of the chimera graph'''
@@ -439,7 +443,7 @@ class ChimeraWidget(QtGui.QScrollArea):
         for m in xrange(ry[0], ry[1]):
             for n in xrange(rx[0], rx[1]):
                 self.tiles[(m, n)].selected = True
-        
+
         self.active_range = {'M': ry,
                              'N': rx}
 
@@ -453,30 +457,30 @@ class ChimeraWidget(QtGui.QScrollArea):
         self.active_range = None
 
         self.canvas.update()
-        
+
     def getActiveGraph(self):
         '''Return the adjacency matrix of active range of the chimera graph'''
-        
+
         if self.active_range is None:
             return self.M, self.N, self.adj, {'M': [0, self.M], 'N': [0, self.N]}
-        
+
         M = self.active_range['M'][1] - self.active_range['M'][0]
         N = self.active_range['N'][1] - self.active_range['N'][0]
-        
+
         # define check functions
         tile_check = lambda m, n, h, l: \
             m >= self.active_range['M'][0] and\
             m < self.active_range['M'][1] and\
             n >= self.active_range['N'][0] and\
             n < self.active_range['N'][1]
-        
+
         node_check = lambda m, n, h, l: tile_check(m, n, h, l) and\
             len(self.adj[(m, n, h, l)]) > 0 and\
             not self.tiles[(m, n)].nodes[(h, l)].used
 
         # include only nodes within active range
         adj = {k1: [] for k1 in self.adj if tile_check(*k1)}
-        
+
         for k1 in adj:
             if node_check(*k1):
                 adj[k1] = [k2 for k2 in self.adj[k1] if node_check(*k2)]
@@ -484,21 +488,21 @@ class ChimeraWidget(QtGui.QScrollArea):
         # offset adjacency list to zero
         dm = self.active_range['M'][0]
         dn = self.active_range['N'][0]
-        
+
         offset = lambda m, n, h, l: (m-dm, n-dn, h, l)
 
         adj = {offset(*k1): [offset(*k2) for k2 in adj[k1]] for k1 in adj}
-        
+
         return M, N, adj, self.active_range
-        
+
     # ADD EMBEDDING
-        
+
     def addEmbedding(self, embedding, ind):
         '''Add an embedding with given index'''
-        
+
         models = embedding.models
         active_range = embedding.active_range
-        
+
         tiles = set()
         for cell in models:
             for m, n, h, l in models[cell]:
@@ -506,10 +510,10 @@ class ChimeraWidget(QtGui.QScrollArea):
                 n += active_range['N'][0]
                 self.tiles[(m, n)].nodes[(h, l)].setUsed(ind, cell)
                 tiles.add((m, n))
-        
+
         for tile in tiles:
             self.canvas.update(self.tiles[tile].geometry())
-        
+
 
     # EVENT HANDLERS
 
@@ -530,7 +534,7 @@ class ChimeraWidget(QtGui.QScrollArea):
         elif e.key() == QtCore.Qt.Key_Down:
             self.verticalScrollBar().setValue(
                 self.verticalScrollBar().value() + scroll_delta)
-            
+
     def keyReleaseEvent(self, e):
         '''Reset key flags'''
 
