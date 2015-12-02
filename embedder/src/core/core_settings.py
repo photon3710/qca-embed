@@ -10,3 +10,5 @@
 # -----------------------------------
 
 DENSE_TRIALS = 10   # number of allowed dense placement trials per embedding
+HEUR_TRIALS = 1    # number of allowed heuristic trials per embedding
+HEUR_TIMEOUT = 5   # allowed number of seconds for heuristic algorithm

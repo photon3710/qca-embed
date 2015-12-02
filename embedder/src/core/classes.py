@@ -12,11 +12,13 @@ import numpy as np
 
 from core.dense_embed.embed import denseEmbed, setChimera
 from core.dense_embed.convert import convertToModels
+from core.chimera import tuple_to_linear, linear_to_tuple
 import core.core_settings as settings
 
-#from dwave_sapi import find_embedding, get_chimera_adjacency
+from dwave_sapi import find_embedding
 
 from pprint import pprint
+
 
 class Embedding:
     '''Container class for an embedding'''
@@ -66,6 +68,8 @@ class Embedding:
         
     def run_dense_embedding(self, full_adj=True):
         '''Setup and run the Dense Placement algorithm'''
+
+        # update embedding type in case direct call
         self.use_dense = True
         
         # format embedding parameters
@@ -102,8 +106,46 @@ class Embedding:
     
     def run_heur_embedding(self, full_adj=True):
         '''Setup and run the Heuristic algorithm'''
+        
+        # update embedding type in case direct call
         self.use_dense = False
-        pass
+        
+        active_cells, qca_adj = self.get_reduced_qca_adj()
+        S_size = len(qca_adj)
+        A_size = len(self.chimera_adj)
+        
+        # construct S
+        S = {}
+        for i in range(S_size):
+            c1 = active_cells[i]
+            for j in range(S_size):
+                c2 = active_cells[j]
+                v = 1 if c2 in qca_adj[c1] else 0
+                S[(i, j)] = v
+                S[(j, i)] = v
+
+        # construct A
+        A = set()
+        for qb1 in self.chimera_adj:
+            for qb2 in self.chimera_adj[qb1]:
+                l1 = tuple_to_linear(qb1, self.M, self.N, L=self.L, index0=True)
+                l2 = tuple_to_linear(qb2, self.M, self.N, L=self.L, index0=True)
+                A.add((l1, l2))
+ 
+        try:
+            print 'Running heuristic embedding'
+            models = find_embedding(S, S_size, A, A_size)
+        except Exception as e:
+            print(e.message())
+        
+        print 'Embedding finished'
+        self.good = len(models) == S_size
+        
+        # map models to standard format
+        mapper = lambda ind: linear_to_tuple(ind, self.M, self.N, 
+                                             L=self.L, index0=True)
+        self.models = {active_cells[i]: [mapper(c) for c in models[i]]
+            for i in xrange(S_size)}
 
     # PARAMETER ACCESS
     

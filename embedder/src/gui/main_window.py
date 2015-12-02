@@ -381,6 +381,8 @@ class MainWindow(QtGui.QMainWindow):
                                           self.embeddings[ind].full_adj)
             if self.embeddings[ind].full_adj != self.full_adj:
                 self.switch_adjacency()
+            if self.embeddings[ind].use_dense != self.use_dense:
+                self.switch_embedder()
             
             # default coloring
             if color:
