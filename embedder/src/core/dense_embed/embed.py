@@ -89,7 +89,7 @@ PORT_PATH = '../bin/temp/port'
 #######################################################################
 ## LOGGING
 
-LOGGING = True
+LOGGING = False
 LOG_PATH = '../bin/logs/log'
 _fp_log = None
 
@@ -287,106 +287,6 @@ def indexToTuple(index, index0=False):
 #######################################################################
 ### INITIALIZATION METHODS ###
 
-# checked, complete
-def setChimeraSize(m, n, l):
-    '''
-    updates the Chimera graph size.
-
-    inputs: m (int) : number of tile rows
-            n (int) : number of tile columns
-            l (int) : number of horizontal or vertical qubits per tile
-
-    outputs: none
-    '''
-
-    global M, N, L
-    M, N, L = m, n, l
-
-
-# checked, complete
-def getCouplerFlags(dis_coup=[], dis_qbits=[]):
-    ''' Returns a dictionary of coupler flags with 4-tup pair indexing.
-    Inputs should have linear indices starting with 1
-
-    inputs:	dis_coup (list)	: list of disabled coupler pairs
-            dis_qbits (list): list of disables qubits
-
-    outputs:
-    '''
-
-    global M, N, L
-
-    coupler_flags = {}
-
-    # generate all couplers for M,N,L: flag default True
-    # keys of type (q1,q2) where q1<q2
-    for row in xrange(M):
-        for col in xrange(N):   # for each tile
-            # vertical qubits
-            for v in xrange(L):
-                q1 = (row, col, 0, v)
-                # internal couplers
-                for h in xrange(L):
-                    q2 = (row, col, 1, h)
-                    coupler_flags[(q1, q2)] = True
-                # external couplers
-                if row < (M-1):
-                    q2 = (row+1, col, 0, v)
-                    coupler_flags[(q1, q2)] = True
-            # horizontal qubits, vertical handles internal couplers
-            for h in xrange(L):
-                q1 = (row, col, 1, h)
-                # external couplers
-                if col < (N-1):
-                    q2 = (row, col+1, 1, h)
-                    coupler_flags[(q1, q2)] = True
-
-    # set disabled couplers as False
-
-    for i1, i2 in dis_coup:
-        if i1 == i2:
-            print 'Self directed coupler detected ...%d' % i1
-            sys.exit()
-        if i2 < i1:
-            i1, i2 = i2, i1
-        q1, q2 = indexToTuple(i1), indexToTuple(i2)
-        ## catch check
-        # print i1, q1
-        # print i2, q2
-        try:
-            coupler_flags[(q1, q2)] = False
-        except KeyError:
-            print 'Invalid coupler: %s -> %s, the grid size is \
-            likely incorrect' % (i1, i2)
-            sys.exit()
-
-    # deactive couplers which connect to disabled qubits
-    for qbit in dis_qbits:
-        q = indexToTuple(qbit)
-        if q[2] == 0:   # vertical qubit
-            for h in xrange(L):
-                q2 = (q[0], q[1], 1, h)
-                coupler_flags[(q, q2)] = False
-            if q[0] > 0:
-                q1 = (q[0]-1, q[1], q[2], q[3])
-                coupler_flags[(q1, q)] = False
-            if q[0] < (M-1):
-                q2 = (q[0]+1, q[1], q[2], q[3])
-                coupler_flags[(q, q2)] = False
-        else:   # horizontal qubit
-            for v in xrange(L):
-                q1 = (q[0], q[1], 0, v)
-                coupler_flags[(q1, q)] = False
-            if q[1] > 0:
-                q1 = (q[0], q[1]-1, 1, q[3])
-                coupler_flags[(q1, q)] = False
-            if q[1] < (N-1):
-                q2 = (q[0], q[1]+1, 1, q[3])
-                coupler_flags[(q, q2)] = False
-
-    return coupler_flags
-
-
 # checked, possibly include pro-processing for wire attraction
 def initialize(source):
     '''Initialise embedding solver'''
@@ -455,28 +355,24 @@ def reset():
 
     _paths = {}
 
-
 # checked, complete
-def setQbitAdj(coupler_flags):
-    ''' Reset/initialise the adjacency list for the chimera graph '''
+def setChimera(chimera_adj, m, n, l):
+    '''
+    updates the Chimera graph size.
+
+    inputs: m (int) : number of tile rows
+            n (int) : number of tile columns
+            l (int) : number of horizontal or vertical qubits per tile
+
+    outputs: none
+    '''
+
     global _qbitAdj, M, N, L
+    
+    M, N, L = m, n, l
 
-    _qbitAdj = {}
-
-    # reset qubit adjacenecy
-    for n in xrange(N):
-        for m in xrange(M):
-            for h in xrange(2):
-                for l in xrange(L):
-                    _qbitAdj[(m, n, h, l)] = []
-
-    # generate qubit adjacenecy
-    for coupler in coupler_flags:
-        if coupler_flags[coupler]:
-            q1, q2 = coupler
-            _qbitAdj[q1].append(q2)
-            _qbitAdj[q2].append(q1)
-
+    _qbitAdj = chimera_adj
+    
     # sort each keyed list
     for key in _qbitAdj:
         _qbitAdj[key].sort()
@@ -2199,7 +2095,7 @@ def denseEmbed(source, write=False):
         doNext.clear()
 
     # post processing path shortening
-    shorten_wire_paths()
+#    shorten_wire_paths()
 
     checkSol()
     log('\n\n***Embedding complete\n\n')

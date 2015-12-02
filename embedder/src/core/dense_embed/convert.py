@@ -26,8 +26,8 @@ _adj = {}       # adjacency dict for the chain structure
 _chains = {}    # end-point keyed dict of lists of chain nodes
 _end_occ = {}   # end_point keyed dict of lists of local chains
 
-LP_FILE = '../sols/lp-sol.lp'   # temp file for lp problem file
-DEL_LP_FILE = True              # delete temp file after use
+LP_FILE = './lp-sol.lp'     # temp file for lp problem file
+DEL_LP_FILE = True          # delete temp file after use
 WRITE_MAX = True                # write larger model size in header
 
 
