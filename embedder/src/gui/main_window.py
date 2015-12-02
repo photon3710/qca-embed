@@ -167,12 +167,20 @@ class MainWindow(QtGui.QMainWindow):
         self.action_embed.setStatusTip('Embed diplayed circuit...')
         self.action_embed.triggered.connect(self.embed_circuit)
         self.action_embed.setEnabled(False)
+        
+        self.action_del_embed = QtGui.QAction(self)
+        self.action_del_embed.setIcon(
+            QtGui.QIcon(settings.ICO_DIR+'del-embed.png'))
+        self.action_del_embed.setStatusTip('Delete active embedding...')
+        self.action_del_embed.triggered.connect(self.removeEmbedding)
+        self.action_del_embed.setEnabled(False)
 
         toolbar.addAction(action_qca_file)
 #        toolbar.addAction(action_embed_file)
         toolbar.addAction(action_chimera_file)
         toolbar.addAction(self.action_switch_adj)
         toolbar.addAction(self.action_embed)
+        toolbar.addAction(self.action_del_embed)
 
     def load_qca_file(self):
         '''Prompt filename for qca file'''
@@ -311,12 +319,13 @@ class MainWindow(QtGui.QMainWindow):
         # update embedding_count
         self.embedding_count += 1
         
-    def removeEmbedding(self, ind):
+    def removeEmbedding(self):
         ''' '''
         
-        self.embeddings = {}        # list of embeddings
-        self.active_embedding = -1  # index of active embedding
-        self.embedding_actions = {}
+        if self.active_embedding == -1:
+            return
+        
+        ind = self.active_embedding
         
         if ind not in self.embeddings:
             print('Attempted to delete a non-existing embedding...')
@@ -325,6 +334,7 @@ class MainWindow(QtGui.QMainWindow):
         # special case if active embedding
         if ind == self.active_embedding:
             self.active_embedding = -1
+            self.action_del_embed.setEnabled(False)
         
         embedding = self.embeddings.pop(ind)
         label = os.path.basename(embedding.qca_file)
@@ -336,21 +346,22 @@ class MainWindow(QtGui.QMainWindow):
         del(embedding)
         
         # delete action from sub-menu
-        self.embedding_menus[label].removeAction(ind)
+        self.embedding_menus[label].removeAction(self.embedding_actions[ind])
         
         # delete action
         self.embedding_actions.pop(ind)
         
         # delete sub-menu if no more elements
         if self.embedding_menus[label].isEmpty():
-            self.embeddings_menu.removeMenu(self.embedding_menus[label])
+            menu_action = self.embedding_menus[label].menuAction()
+            self.embeddings_menu.removeAction(menu_action)
             self.embedding_menus.pop(label)
         
-        # disable embeddings_menu if not embeddings
+        # disable embeddings_menu if no embeddings
         if len(self.embeddings) == 0:
             self.embeddings_menu.setEnabled(False)
 
-    def switchEmbedding(self, ind):
+    def switchEmbedding(self, ind, color=True):
         '''Switch active embedding'''
 
         if ind in self.embeddings:
@@ -358,6 +369,9 @@ class MainWindow(QtGui.QMainWindow):
             if self.active_embedding != -1:
                 self.embedding_actions[self.active_embedding].setEnabled(True)
             
+            # allow deletion of active embedding
+            self.action_del_embed.setEnabled(True)
+
             # disable new active embedding action
             self.embedding_actions[ind].setEnabled(False)
             
@@ -368,8 +382,10 @@ class MainWindow(QtGui.QMainWindow):
             if self.embeddings[ind].full_adj != self.full_adj:
                 self.switch_adjacency()
             
-            # color nodes, no cell selected (assume no -1 cell)
-            self.chimera_widget.selectNodes(self.embeddings[ind], -1)
+            # default coloring
+            if color:
+                # color nodes, no cell selected (assume no -1 cell)
+                self.chimera_widget.selectNodes(self.embeddings[ind], -1)
             
         
     # EVENT HANDLING

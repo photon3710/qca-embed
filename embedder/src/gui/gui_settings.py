@@ -72,5 +72,5 @@ CHIMERA_COL = {'tile': QtGui.QColor(220, 220, 220),
                'active': QtGui.QColor(255, 255, 255),
                'inactive': QtGui.QColor(255, 255, 255, 0),
                'used': QtGui.QColor(0, 200, 0),
-               'clicked': QtGui.QColor(200, 0, 0),
+               'clicked': QtGui.QColor(230, 0, 0),
                'local': QtGui.QColor(0, 0, 200)}

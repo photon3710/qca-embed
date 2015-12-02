@@ -415,14 +415,16 @@ class ChimeraWidget(QtGui.QScrollArea):
 
         cell = node.cell
         embedding = self.parent.embeddings[node.embedding_ind]
-        self.selectNodes(embedding, cell)
 
         # make changes to QCA widget
         if self.parent.active_embedding != node.embedding_ind:
-            self.parent.switchEmbedding(node.embedding_ind)
+            self.parent.switchEmbedding(node.embedding_ind, color=False)
 
-        # highligh corresponding cell in QCAWidget
+        # highlight corresponding cell in QCAWidget
         self.parent.qca_widget.selectCell(cell)
+        
+        # highlight nodes of embedding
+        self.selectNodes(embedding, cell)
 
     def selectNodes(self, embedding, cell):
         '''Select the nodes corresponding to a cell in an embedding'''
