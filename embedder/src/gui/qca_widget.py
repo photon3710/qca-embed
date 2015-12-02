@@ -13,7 +13,7 @@ from PyQt4 import QtGui, QtCore
 import gui_settings as settings
 from core.parse_qca import parse_qca_file
 from core.auxil import convert_to_full_adjacency, convert_to_lim_adjacency,\
-    prepare_convert_adj
+    prepare_convert_adj, CELL_FUNCTIONS
 
 import numpy as np
 
@@ -45,6 +45,11 @@ class QCACellWidget(QtGui.QWidget):
             x = settings.CELL_SEP*(qd['x']-offset[0])*1./spacing
             y = settings.CELL_SEP*(qd['y']-offset[1])*1./spacing
             self.qdots.append([x, y])
+        
+        # flags for cell type (simplifies access later)
+        self.fixed = self.type == CELL_FUNCTIONS['QCAD_CELL_FIXED']
+        self.driver = self.type == CELL_FUNCTIONS['QCAD_CELL_INPUT']
+        self.output = self.type == CELL_FUNCTIONS['QCAD_CELL_OUTPUT']
 
         self.setGeometry(0, 0, settings.CELL_SIZE, settings.CELL_SIZE)
         self.clicked = False
@@ -188,9 +193,11 @@ class Canvas(QtGui.QWidget):
 class QCAWidget(QtGui.QScrollArea):
     '''Widget for viewing QCA circuits'''
 
-    def __init__(self, filename=None):
+    def __init__(self, parent=None, filename=None):
         ''' '''
-        super(QCAWidget, self).__init__()
+        super(QCAWidget, self).__init__(parent)
+
+        self.parent = parent
 
         # parameters
         self.cells = []         # list of qca cells
@@ -216,7 +223,7 @@ class QCAWidget(QtGui.QScrollArea):
         self.canvas.setGeometry(0, 0, 0, 0)
         self.setWidget(self.canvas)
 
-    def updateCircuit(self, filename, adj_typ='full'):
+    def updateCircuit(self, filename, full_adj):
         ''' '''
 
         try:
@@ -225,6 +232,9 @@ class QCAWidget(QtGui.QScrollArea):
         except:
             print('Failed to load QCA File...')
             return
+
+        # save filename for reference
+        self.filename = filename
 
         # forget old circuit
         self.cells = []
@@ -240,7 +250,7 @@ class QCAWidget(QtGui.QScrollArea):
                              'DY': DY}
         
         # set adjacency type
-        self.setAdjacency(adj_typ, update=False)  # sets full_adj and J0
+        self.setAdjacency(full_adj, update=False)  # sets full_adj and J0
 
         # find span and offset of circuit: currently inefficient
         x_min = min([cell['x'] for cell in cells])
@@ -270,14 +280,13 @@ class QCAWidget(QtGui.QScrollArea):
 
         self.canvas.update()
     
-    def setAdjacency(self, typ, update=True):
+    def setAdjacency(self, full_adj, update=True):
         ''' '''
-        if typ == 'lim':
-            self.full_adj = False
-            self.J0 = convert_to_lim_adjacency(self.J, **self.convert_vars)
-        else:
-            self.full_adj = True
+        self.full_adj = full_adj
+        if full_adj:
             self.J0 = convert_to_full_adjacency(self.J, **self.convert_vars)
+        else:
+            self.J0 = convert_to_lim_adjacency(self.J, **self.convert_vars)
 
         self.J0 /= np.max(np.abs(self.J0))
 
@@ -294,17 +303,29 @@ class QCAWidget(QtGui.QScrollArea):
     def onClick(self, num):
         '''Response to clicking on one the QCA cells'''
 
-        for cell in self.cells:
-            cell.clicked = False
-        self.cells[num].clicked = True
+        self.selectCell(num)
+        
+        # make changes in chimera widget
 
-        self.canvas.update()
-#        print('Detected click on cell {0}'.format(num))
 
+    def selectCell(self, num):
+        ''' '''
+        cell = self.cells[num]
+        if cell.driver or cell.fixed or cell.clicked:
+            return
+
+        for c2 in self.cells:
+            if c2.clicked:
+                c2.clicked = False
+                self.canvas.update(c2.geometry())
+
+        cell.clicked = True
+        self.canvas.update(cell.geometry())
 
     def prepareCircuit(self):
         '''Return needed parameters for embedding'''
-        pass
+        
+        return self.J0, self.cells
 
     # interrupts
 

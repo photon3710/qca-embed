@@ -23,9 +23,9 @@ ICO_DIR = './gui/ico/'   # icon directory
 BUTTON_SIZE = 25    # size of buttons
 
 # QCA CELL PARAMETERS
-CELL_SEP = 70               #
-CELL_SIZE = .8*CELL_SEP     #
-CELL_ALPHA = int(.15*255)   #
+CELL_SEP = 70               # Space between QCA cells
+CELL_SIZE = .8*CELL_SEP     # Size of QCA cell
+#CELL_ALPHA = int(.15*255)   # 
 
 # --colors
 QCA_COL = {'default': QtGui.QColor(255, 255, 255),
@@ -56,13 +56,13 @@ QCA_CANVAS_OFFSET = 0.3
 
 # CHIMERA PARAMETERS
 
-CHIMERA_TILE_SIZE = 100
+CHIMERA_TILE_SIZE = 90
 CHIMERA_NODE_RAD = 0.07
 CHIMERA_PEN_WIDTH = 0.01*CHIMERA_TILE_SIZE
 CHIMERA_NODE_OFFSET = 0.12
 CHIMERA_NODE_DELTA = 0.20
 CHIMERA_EDGE_WIDTH = 0.02*CHIMERA_TILE_SIZE
-CHIMERA_FONT_SIZE = 0.1*CHIMERA_TILE_SIZE
+CHIMERA_FONT_SIZE = 0.12*CHIMERA_TILE_SIZE
 CHIMERA_LABEL_OFFSET = 0.05*CHIMERA_TILE_SIZE
 CHIMERA_LABEL_COLOR = QtGui.QColor(255, 0, 0)
 CHIMERA_DEFAULT_FILE = '../bin/bay16.txt'
@@ -71,5 +71,6 @@ CHIMERA_COL = {'tile': QtGui.QColor(220, 220, 220),
                'tile-selected': QtGui.QColor(170, 170, 170),
                'active': QtGui.QColor(255, 255, 255),
                'inactive': QtGui.QColor(255, 255, 255, 0),
-               'used': QtGui.QColor(0, 150, 0),
-               'clicked': QtGui.QColor(150, 150, 0)}
+               'used': QtGui.QColor(0, 200, 0),
+               'clicked': QtGui.QColor(200, 0, 0),
+               'local': QtGui.QColor(0, 0, 200)}

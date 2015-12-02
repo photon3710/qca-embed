@@ -14,8 +14,7 @@ import os
 import gui_settings as settings
 from qca_widget import QCAWidget
 from chimera_widget import ChimeraWidget
-
-from pprint import pprint
+from core.classes import Embedding
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -39,6 +38,10 @@ class MainWindow(QtGui.QMainWindow):
         self.qca_active = False     # True when QCAWidget set
         self.full_adj = True        # True when using full adjacency
         self.use_dense = True       # True if using Dense Placement embedder
+        
+        self.embeddings = {}        # list of embeddings
+        self.active_embedding = -1  # index of active embedding
+        self.embedding_count = 0    # next embedding index
 
         # main window parameters
         geo = [settings.WIN_X0, settings.WIN_Y0,
@@ -58,10 +61,10 @@ class MainWindow(QtGui.QMainWindow):
         hbox = QtGui.QHBoxLayout()
 
         # QCA widget placeholder
-        self.qca_widget = QCAWidget()
+        self.qca_widget = QCAWidget(self)
 
         # Chimera widget
-        self.chimera_widget = ChimeraWidget()
+        self.chimera_widget = ChimeraWidget(self)
 
         hbox.addWidget(self.qca_widget, stretch=4)
         hbox.addWidget(self.chimera_widget, stretch=4)
@@ -168,15 +171,15 @@ class MainWindow(QtGui.QMainWindow):
     def load_qca_file(self):
         '''Prompt filename for qca file'''
 
-        fname = QtGui.QFileDialog.getOpenFileName(
-            self, 'Select QCA File', self.qca_dir)
+        fname = str(QtGui.QFileDialog.getOpenFileName(
+            self, 'Select QCA File', self.qca_dir))
 
         # update qca home directory
         fdir = os.path.dirname(fname)
         self.qca_dir = fdir
 
-        adj_typ = 'full' if self.full_adj else 'lim'
-        self.qca_widget.updateCircuit(fname, adj_typ=adj_typ)
+        self.qca_widget.updateCircuit(fname, self.full_adj)
+        self.active_embedding = -1
         
         if not self.qca_active:
             self.qca_active = True
@@ -209,7 +212,6 @@ class MainWindow(QtGui.QMainWindow):
         
     def switch_adjacency(self):
         ''' '''
-        
         if self.qca_active:
             self.full_adj = not self.full_adj
             ico_file = 'lim_adj.png' if self.full_adj else 'full_adj.png'
@@ -218,7 +220,7 @@ class MainWindow(QtGui.QMainWindow):
                 QtGui.QIcon(settings.ICO_DIR+ico_file))
             self.action_switch_adj.setStatusTip(
                 'Switch to {0} Adjacency...'.format(sub_message))
-            self.qca_widget.setAdjacency('full' if self.full_adj else 'lim')
+            self.qca_widget.setAdjacency(self.full_adj)
         
     def switch_embedder(self):
         '''Change between embedding algorithms and set menu enabling'''
@@ -236,9 +238,49 @@ class MainWindow(QtGui.QMainWindow):
         # get circuit configuration
         
         # get chimera sub-graph
-        M, N, adj, active_range = self.chimera_widget.getActiveGraph()
+        M, N, chimera_adj, active_range = self.chimera_widget.getActiveGraph()
         
-        pprint(adj)
+        # get qca parameters
+        J, cells = self.qca_widget.prepareCircuit()
+        
+        # embedding object
+        embedding = Embedding(self.qca_widget.filename)
+        embedding.set_embedder(self.use_dense)
+        embedding.set_chimera(chimera_adj, active_range, M, N)
+        embedding.set_qca(J, cells, self.full_adj)
+        
+        # run embedding
+        try:
+            embedding.run_embedding()
+        except Exception as e:
+            if type(e).__name__ == 'KeyboardInterrupt':
+                print('Embedding interrupted...')
+            return
+        
+        if embedding.good:
+            self.addEmbedding(embedding)
+        else:
+            print('Embedding failed...')
+
+    def addEmbedding(self, embedding):
+        '''Add an embedding object'''
+
+        self.embeddings[self.embedding_count] = embedding
+        self.chimera_widget.addEmbedding(embedding, self.embedding_count)
+        self.active_embedding = self.embedding_count
+        self.embedding_count += 1
+        
+    def switchEmbedding(self, ind):
+        '''Switch active embedding'''
+        
+        if ind in self.embeddings:
+            self.active_embedding = ind
+            self.qca_widget.updateCircuit(self.embeddings[ind].qca_file,
+                                          self.embeddings[ind].full_adj)
+            if self.embeddings[ind].full_adj != self.full_adj:
+                self.switch_adjacency()
+        
+    # EVENT HANDLING
 
     def closeEvent(self, e):
         '''Handle main window close event'''

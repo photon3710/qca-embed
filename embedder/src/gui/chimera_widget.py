@@ -25,12 +25,19 @@ class ChimeraNode(QtGui.QWidget):
 
         super(ChimeraNode, self).__init__(tile)
 
-        self.tile = tile
-        self.used = False       # flag if node is taken by an embedding
+        self.tile = tile        # Tile containing the node
+        
+        self.cell = None            # cell with model containing the node
+        self.embedding_ind = None   # embedding index
+        self.used = False           # flag if node is taken by an embedding
+        self.clicked = False
+        self.local = False
+
         self.active = active    # flag determines whether node is active
+
         self.h = h
         self.l = l
-        self.n = 4*(0 if h else 1)+l    # index of node within tile
+
         self.mouse_pos = None
 
         # determine center position within tile
@@ -46,6 +53,11 @@ class ChimeraNode(QtGui.QWidget):
 
         if not self.active:
             color = settings.CHIMERA_COL['inactive']
+        if self.local:
+            if self.clicked:
+                color = settings.CHIMERA_COL['clicked']
+            else:
+                color = settings.CHIMERA_COL['local']
         elif self.used:
             color = settings.CHIMERA_COL['used']
         else:
@@ -80,6 +92,12 @@ class ChimeraNode(QtGui.QWidget):
         painter.setBrush(brush)
 
         painter.drawEllipse(rect)
+        
+    def setUsed(self, ind, cell):
+        ''' '''
+        self.used = True
+        self.embedding_ind = ind
+        self.cell = cell
 
     def mousePressEvent(self, e):
         ''' '''
@@ -90,8 +108,7 @@ class ChimeraNode(QtGui.QWidget):
         if self.mouse_pos is not None:
             diff = e.pos() - self.mouse_pos
             if max(abs(diff.x()), abs(diff.y())) < self.width():
-                self.tile.parent.onNodeClick(
-                    self.tile.m, self.tile.n, self.h, self.l)
+                self.tile.parent.onNodeClick(self)
         self.mouse_pos = None
 
 
@@ -165,7 +182,7 @@ class ChimeraTile(QtGui.QWidget):
                                     settings.CHIMERA_FONT_SIZE))
         painter.drawText(
             self.x()+settings.CHIMERA_LABEL_OFFSET,
-            self.y()+2*settings.CHIMERA_LABEL_OFFSET,
+            self.y()+self.height()-settings.CHIMERA_LABEL_OFFSET,
             '{0}:{1}'.format(self.m, self.n))
 
     def drawNodes(self, painter):
@@ -264,9 +281,11 @@ class Canvas(QtGui.QWidget):
 class ChimeraWidget(QtGui.QScrollArea):
     '''Widget for viewing QCA circuits'''
 
-    def __init__(self):
+    def __init__(self, parent=None):
         ''' '''
-        super(ChimeraWidget, self).__init__()
+        super(ChimeraWidget, self).__init__(parent)
+
+        self.parent = parent
 
         # parameters
         self.shift = False          # flag for shift pressed
@@ -354,13 +373,56 @@ class ChimeraWidget(QtGui.QScrollArea):
             self.setActiveRange((m, n), None)
             self.canvas.update()
 
-    def onNodeClick(self, m, n, h, l):
+    def unclickNodes(self):
+        for m, n in self.tiles:
+            tile = self.tiles[(m, n)]
+            redraw = False
+            for h, l in tile.nodes:
+                node = tile.nodes[(h, l)]
+                if node.local:
+                    node.local = False
+                    node.clicked = False
+                    redraw = True
+            if redraw:
+                self.canvas.update(tile.geometry())
+                    
+                
+    def onNodeClick(self, node):
         '''On node click'''
         
-        tile = self.tiles[(m, n)]
-        node = tile.nodes[(h, l)]
-        node.used = not node.used
-        self.canvas.update(tile.geometry())
+        if not node.used:
+            return
+
+        cell = node.cell
+        embedding = self.parent.embeddings[node.embedding_ind]
+        
+        active_range = embedding.active_range
+        
+        # unset all other nodes
+        self.unclickNodes()
+        
+        # set all nodes of the circuit as local
+        tiles = set()
+        for c1 in embedding.models:
+            for m, n, h, l in embedding.models[c1]:
+                # correct tile for active range
+                m += active_range['M'][0]
+                n += active_range['N'][0]
+                # set node as clicked
+                tiles.add((m, n))
+                self.tiles[(m, n)].nodes[(h, l)].local=True
+                if c1 == cell:
+                    self.tiles[(m, n)].nodes[(h, l)].clicked=True
+
+        for m, n in tiles:
+            self.canvas.update(self.tiles[(m, n)].geometry())
+        
+        # make changes to QCA widget
+        if self.parent.active_embedding != node.embedding_ind:
+            self.parent.switchEmbedding(node.embedding_ind)
+
+        # highligh corresponding cell in QCAWidget
+        self.parent.qca_widget.selectCell(cell)
 
     def setActiveRange(self, tile1, tile2):
         '''Set the active range of the chimera graph'''
@@ -396,7 +458,7 @@ class ChimeraWidget(QtGui.QScrollArea):
         '''Return the adjacency matrix of active range of the chimera graph'''
         
         if self.active_range is None:
-            return self.M, self.N, self.adj, self.active_range
+            return self.M, self.N, self.adj, {'M': [0, self.M], 'N': [0, self.N]}
         
         M = self.active_range['M'][1] - self.active_range['M'][0]
         N = self.active_range['N'][1] - self.active_range['N'][0]
@@ -428,6 +490,26 @@ class ChimeraWidget(QtGui.QScrollArea):
         adj = {offset(*k1): [offset(*k2) for k2 in adj[k1]] for k1 in adj}
         
         return M, N, adj, self.active_range
+        
+    # ADD EMBEDDING
+        
+    def addEmbedding(self, embedding, ind):
+        '''Add an embedding with given index'''
+        
+        models = embedding.models
+        active_range = embedding.active_range
+        
+        tiles = set()
+        for cell in models:
+            for m, n, h, l in models[cell]:
+                m += active_range['M'][0]
+                n += active_range['N'][0]
+                self.tiles[(m, n)].nodes[(h, l)].setUsed(ind, cell)
+                tiles.add((m, n))
+        
+        for tile in tiles:
+            self.canvas.update(self.tiles[tile].geometry())
+        
 
     # EVENT HANDLERS
 
@@ -460,6 +542,7 @@ class ChimeraWidget(QtGui.QScrollArea):
 
     def mouseMoveEvent(self, e):
         ''' '''
+        return  # disable for now.... cause problems
         if self.mouse_pos is not None:
             diff = e.pos()-self.mouse_pos
             self.mouse_pos = e.pos()
