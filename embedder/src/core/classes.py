@@ -17,8 +17,6 @@ import core.core_settings as settings
 
 from dwave_sapi import find_embedding
 
-from pprint import pprint
-
 
 class Embedding:
     '''Container class for an embedding'''
