@@ -234,29 +234,31 @@ class MainWindow(QtGui.QMainWindow):
         sub-graph'''
         
         print('Running embedding...')
-        
-        # get circuit configuration
-        
-        # get chimera sub-graph
-        M, N, chimera_adj, active_range = self.chimera_widget.getActiveGraph()
-        
-        # get qca parameters
-        J, cells = self.qca_widget.prepareCircuit()
-        
-        # embedding object
-        embedding = Embedding(self.qca_widget.filename)
-        embedding.set_embedder(self.use_dense)
-        embedding.set_chimera(chimera_adj, active_range, M, N)
-        embedding.set_qca(J, cells, self.full_adj)
-        
-        # run embedding
-        try:
-            embedding.run_embedding()
-        except Exception as e:
-            if type(e).__name__ == 'KeyboardInterrupt':
-                print('Embedding interrupted...')
+
+        try:        
+            # get chimera sub-graph
+            M, N, chimera_adj, active_range = self.chimera_widget.getActiveGraph()
+            
+            # get qca parameters
+            J, cells = self.qca_widget.prepareCircuit()
+            
+            # embedding object
+            embedding = Embedding(self.qca_widget.filename)
+            embedding.set_embedder(self.use_dense)
+            embedding.set_chimera(chimera_adj, active_range, M, N)
+            embedding.set_qca(J, cells, self.full_adj)
+            
+            # run embedding
+            try:
+                embedding.run_embedding()
+            except Exception as e:
+                if type(e).__name__ == 'KeyboardInterrupt':
+                    print('Embedding interrupted...')
+                return
+        except:
+            print('\nUnexpected crash in embedding... possible disjoint graph')
             return
-        
+
         if embedding.good:
             self.addEmbedding(embedding)
         else:
