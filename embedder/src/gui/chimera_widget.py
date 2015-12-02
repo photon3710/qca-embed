@@ -374,6 +374,7 @@ class ChimeraWidget(QtGui.QScrollArea):
             self.canvas.update()
 
     def unclickNodes(self):
+        '''Reset the clicked and local flags of all nodes'''
         for m, n in self.tiles:
             tile = self.tiles[(m, n)]
             redraw = False
@@ -386,6 +387,25 @@ class ChimeraWidget(QtGui.QScrollArea):
             if redraw:
                 self.canvas.update(tile.geometry())
 
+    def resetNodes(self, embedding):
+        '''Reset the nodes of an embedding to non-used'''
+        
+        models = embedding.models
+        active_range = embedding.active_range
+
+        tiles = set()
+        for c1 in models:
+            for m, n, h, l in models[c1]:
+                # correct tile for active range
+                m += active_range['M'][0]
+                n += active_range['N'][0]
+                # set node as clicked
+                tiles.add((m, n))
+                self.tiles[(m, n)].nodes[(h, l)].used=False
+                self.tiles[(m, n)].nodes[(h, l)].clicked=False
+                self.tiles[(m, n)].nodes[(h, l)].local=False
+        for m, n in tiles:
+            self.canvas.update(self.tiles[(m, n)].geometry())
 
     def onNodeClick(self, node):
         '''On node click'''
@@ -509,7 +529,6 @@ class ChimeraWidget(QtGui.QScrollArea):
                 m += active_range['M'][0]
                 n += active_range['N'][0]
                 self.tiles[(m, n)].nodes[(h, l)].setUsed(ind, cell)
-                tiles.add((m, n))
 
         for tile in tiles:
             self.canvas.update(self.tiles[tile].geometry())
