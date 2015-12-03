@@ -9,6 +9,8 @@
 #---------------------------------------------------------
 
 import numpy as np
+import re
+import os
 
 from core.dense_embed.embed import denseEmbed, setChimera
 from core.dense_embed.convert import convertToModels
@@ -21,7 +23,7 @@ from dwave_sapi import find_embedding
 class Embedding:
     '''Container class for an embedding'''
     
-    def __init__(self, qca_file):
+    def __init__(self, qca_file=None):
         '''Initiate an embedding object'''
         
         # flags and general parameters
@@ -187,16 +189,55 @@ class Embedding:
     
     # FILE IO
     
-    def write_info_file(self, fname):
-        '''Write the information file into the coef directory'''
-        pass
+    def from_file(self, fname, chimera_file):
+        '''Load an embedder object from file relative to main directory'''
+        
+        try:
+            fp = open(fname, 'r')
+        except:
+            print('Failed to open file: {0}'.format(fname))
+            raise IOError
+        
+        # parse file
+        info = {}
+        cells = []
+        for line in fp:
+            if '#' in line or len(line) < 3:
+                continue
+            key, data = [x.strip() for x in line.split(':')]
+            info[key] = data
+            if key.isdigit():
+                cells.append(key)
+        fp.close()
 
-    def save_embedding(self):
-        '''Save the embedding to file'''
-        pass
-    
-    def save_coefs(self):
-        '''Save coefficient files for all unique input sets'''
-        pass
+        # process info
+        ndir = os.path.dirname(fname)
+        chim_file = os.path.normpath(os.path.join(ndir, info['chimera_file']))
+
+        if not os.path.samefile(chim_file, chimera_file):
+            print('Chosen embedding is not native to this chimera graph')
+            return
+
+        self.qca_file = os.path.normpath(os.path.join(ndir, info['qca_file']))
         
+        # flags
+        self.full_adj = info['full_adj'] == 'True'
+        self.use_dense = info['use_dense'] == 'True'
         
+        # chimera parameters
+        self.M = int(info['M'])
+        self.N = int(info['N'])
+        self.L = int(info['L'])
+
+        M0 = int(info['M0'])
+        N0 = int(info['N0'])
+        self.active_range = {'M': [M0, M0+self.M],
+                             'N': [N0, N0+self.N]}
+        
+        # get models
+        models = {}
+        regex = re.compile('[0-9]+')
+        str_to_tuple = lambda s: tuple([int(x) for x in regex.findall(s)])
+        for cell in cells:
+            models[int(cell)] = [str_to_tuple(s) for s in info[cell].split(';')]                
+        self.models = models

@@ -9,6 +9,7 @@
 # -----------------------------------
 
 from PyQt4 import QtGui, QtCore
+
 import os
 
 import gui_settings as settings
@@ -201,6 +202,15 @@ class MainWindow(QtGui.QMainWindow):
         toolbar.addAction(self.action_embed)
         toolbar.addAction(self.action_del_embed)
         
+    def reset(self):
+        '''Delete all embedding and reset counters'''
+        
+        for ind in self.embeddings:
+            self.active_embedding = ind
+            self.removeEmbedding()
+        self.active_embedding = -1
+        self.embedding_count = 0
+        
     def switch_adjacency(self):
         ''' '''
         if self.qca_active:
@@ -368,7 +378,7 @@ class MainWindow(QtGui.QMainWindow):
             if color:
                 # color nodes, no cell selected (assume no -1 cell)
                 self.chimera_widget.selectNodes(self.embeddings[ind], -1)
-            
+
     # FILE IO
     
     def create_embed_file(self, fname):
@@ -382,7 +392,7 @@ class MainWindow(QtGui.QMainWindow):
         
         # header
         chim_file = os.path.relpath(self.chimera_file, os.path.dirname(fname))
-        fp.write('chimera: {0}\n\n'.format(chim_file))
+        fp.write('chimera_file: {0}\n\n'.format(chim_file))
 
         # embedding files
         for ind in self.embeddings:
@@ -396,11 +406,14 @@ class MainWindow(QtGui.QMainWindow):
         if self.active_embedding == -1:
             print('Trying to save nothing....should not have happened')
             return
-        embedding = self.embeddings[self.active_embedding]
         
         fname = str(QtGui.QFileDialog.getSaveFileName(
             self, 'Save active embedding', self.embed_dir))
         
+        if not fname:
+            return
+
+        embedding = self.embeddings[self.active_embedding]
         self.save_embedding(embedding, fname)
     
     def save_embedding(self, embedding, fname):
@@ -414,7 +427,7 @@ class MainWindow(QtGui.QMainWindow):
         
         # chimera file
         chim_file = os.path.relpath(self.chimera_file, os.path.dirname(fname))
-        fp.write('chimera: {0}\n'.format(chim_file))
+        fp.write('chimera_file: {0}\n'.format(chim_file))
 
         # qca file
         qca_file = os.path.relpath(embedding.qca_file, os.path.dirname(fname))
@@ -445,6 +458,9 @@ class MainWindow(QtGui.QMainWindow):
         dir_name = str(QtGui.QFileDialog.getExistingDirectory(
             self, 'Create/Select empty directory...', self.embed_dir))
         
+        if not dir_name:
+            return
+
         # convert to standard form
         dir_name = os.path.join(os.path.normpath(dir_name), '')
         
@@ -486,7 +502,16 @@ class MainWindow(QtGui.QMainWindow):
         
     def load_embedding(self, fname):
         ''' '''
-        pass
+        
+        # create embedding
+        embedding = Embedding()
+        try:
+            embedding.from_file(fname, self.chimera_file)
+        except:
+            print('Failed to load embedding')
+            return
+        
+        self.addEmbedding(embedding)
     
     def load_embed_file(self):
         '''Prompt filename for embed file'''
@@ -495,15 +520,55 @@ class MainWindow(QtGui.QMainWindow):
             self, 'Select Embedding File', self.embed_dir,
                 filter='EMBED (*.embed);; All files (*)'))
 
+        if not fname:
+            return
+
         # update embed home directory
         fdir = os.path.dirname(fname)
         self.embed_dir = fdir
+        
+        try:
+            fp = open(fname, 'r')
+        except:
+            print('Failed to open file: {0}'.format(fname))
+            return None
+        
+        # parse file
+        info = {}
+        inds = []
+        for line in fp:
+            if '#' in line or len(line)<3:
+                continue
+            key, data = [x.strip() for x in line.split(':')]
+            info[key] = data
+            if key.isdigit():
+                inds.append(int(key))
+        fp.close()
+        
+        # delete all embeddings
+        self.reset()
+        ndir = os.path.dirname(fname)
+        chim_file = os.path.normpath(os.path.join(ndir, info['chimera_file']))
+        self.chimera_widget.updateChimera(chim_file)
+        
+        for ind in inds:
+            ndir = os.path.dirname(fname)
+            fn = os.path.normpath(os.path.join(ndir, info[str(ind)]))
+            self.load_embedding(fn)
+        
+        if not self.qca_active:
+            self.qca_active = True
+            self.action_embed.setEnabled(True)
+            self.action_switch_adj.setEnabled(True)
     
     def load_qca_file(self):
         '''Prompt filename for qca file'''
 
         fname = str(QtGui.QFileDialog.getOpenFileName(
             self, 'Select QCA File', self.qca_dir))
+            
+        if not fname:
+            return
 
         # update qca home directory
         fdir = os.path.dirname(fname)
@@ -528,6 +593,9 @@ class MainWindow(QtGui.QMainWindow):
 
         fname = str(QtGui.QFileDialog.getOpenFileName(
             self, 'Select Chimera File', self.chimera_dir))
+
+        if not fname:
+            return
 
         # update chimera home directory
         fdir = os.path.dirname(fname)

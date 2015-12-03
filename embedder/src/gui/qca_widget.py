@@ -237,6 +237,8 @@ class QCAWidget(QtGui.QScrollArea):
         self.filename = filename
 
         # forget old circuit
+        for cell in self.cells:
+            cell.setParent(None)
         self.cells = []
 
         # update J coefficients
