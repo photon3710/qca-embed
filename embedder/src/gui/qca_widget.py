@@ -50,6 +50,12 @@ class QCACellWidget(QtGui.QWidget):
         self.fixed = self.type == CELL_FUNCTIONS['QCAD_CELL_FIXED']
         self.driver = self.type == CELL_FUNCTIONS['QCAD_CELL_INPUT']
         self.output = self.type == CELL_FUNCTIONS['QCAD_CELL_OUTPUT']
+        self.normal = not (self.fixed or self.driver)
+        
+        if self.fixed:
+            self.pol = cell['pol']
+        else:
+            self.pol = None
 
         self.setGeometry(0, 0, settings.CELL_SIZE, settings.CELL_SIZE)
         self.clicked = False

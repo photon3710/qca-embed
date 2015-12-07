@@ -13,9 +13,8 @@ import networkx as nx
 import itertools
 import re
 
+from pprint import pprint
 # ASSIGNMENT PARAMETERS
-J_INNER = -1    # J parameter for couplers within subgraphs
-
 
 strategies = ['maximal',    # Use as many couplers as possible
               'minimal'     # Use as few couplers as possible
@@ -65,10 +64,13 @@ def minimal_couplers(subgraphs, edges):
 
     # for each pair of subgraphs, keep the inter-subgraph edge with the
     # minimum total cost of its end nodes
+    nodes = sorted(subgraphs.keys())
     for i in xrange(N-1):
+        q1 = nodes[i]
         for j in xrange(i+1, N):
-            edge_costs = {e: costs[e[0]]+costs[e[1]] for e in edges[(i, j)]}
-            edges[(i, j)] = sort_dict(edge_costs)[0]
+            q2 = nodes[j]
+            edge_costs = {e: costs[e[0]]+costs[e[1]] for e in edges[(q1, q2)]}
+            edges[(q1, q2)] = sort_dict(edge_costs)[0]
 
     return subgraphs, edges
 
@@ -159,39 +161,41 @@ def partition_graph(G, parts):
     lists of node labels for each subgraph
 
     inputs: G       : Graph object to be partitioned
-            parts   : list of lists of subgraph nodes. Must have same labels as
+            parts   : dict of lists of subgraph nodes. Must have same labels as
                      in G
     '''
 
     N = len(parts)  # number of partitions
 
     # get partition subgraphs
-
     subgraphs = {}
-    for i, part in enumerate(parts):
+    for node in parts:
+        part = parts[node]
+        pprint(part)
         subgraph = G.subgraph(part)
+        pprint(subgraph.nodes())
         if len(subgraph) < len(part):
             conflicts = [n for n in part if not n in subgraph.nodes()]
             raise KeyError('Invalid indices given: {0}'.format(conflicts))
-        subgraphs[i] = subgraph
+        subgraphs[node] = subgraph
 
     # get list of edges between each subgraph
     edges = {}
+    nodes = sorted(parts.keys())
     for i1 in xrange(N-1):
+        n1 = nodes[i1]
         for i2 in xrange(i1+1, N):
-            edges[(i1, i2)] = []
-            for u, v in list(itertools.product(parts[i1], parts[i2])):
+            n2 = nodes[i2]
+            edges[(n1, n2)] = []
+            for u, v in list(itertools.product(parts[n1], parts[n2])):
                 edge = sorted([u, v])
                 if G.has_edge(*edge):
-                    edges[(i1, i2)].append(edge)
-            if len(edges[(i1, i2)]) == 0:
-                raise KeyError('No edges found between partitions {0} \
-                                and {1}'.format(i1, i2))
+                    edges[(n1, n2)].append(edge)
 
     return subgraphs, edges
 
 
-def convert_to_parameters(h, J, subgraphs, edges):
+def convert_to_parameters(h, J, subgraphs, edges, J_inner):
     '''Construct parameter dictionaries from the problem h and J coefficients
     and the determined subgraphs and edges'''
 
@@ -204,47 +208,53 @@ def convert_to_parameters(h, J, subgraphs, edges):
     Jq = {}     # J parameter for each coupler: key format (u, v) with u < v
 
     # handle internal subgraph parameters
-    for i, subgraph in enumerate(subgraphs):
-        for node in subgraph.nodes():
-            hq[node] = h[i]*1./subgraph.number_of_nodes()
-        for edge in subgraph.edges():
-            Jq[edge] = J_INNER
+    for node in h:
+        subgraph = subgraphs[node]
+        for qbit in subgraph.nodes():
+            hq[qbit] = h[node]*1./subgraph.number_of_nodes()
+        for q1, q2 in subgraph.edges():
+            Jq[(q1, q2)] = J_inner
 
     # handle inter-subgraph parameters
+    nodes = sorted(subgraphs.keys())
     for i in xrange(N-1):
+        n1 = nodes[i]
         for j in xrange(i+1, N):
-            for edge in edges[(i, j)]:
-                Jq[edge] = J[i, j]*1./len(edges[(i, j)])
+            n2 = nodes[j]
+            if n2 in J[n1]:
+                for q1, q2 in edges[(n1, n2)]:
+                    Jq[(q1, q2)] = J[n1][n2]*1./len(edges[(n1, n2)])
 
     return hq, Jq
 
 
-def assign_parameters(h, J, qbits, chimera, flip_J=False):
+def assign_parameters(h, J, qbits, chimera, flip_J=False, J_inner=-1):
     '''Determine the h and J coefficients for a given embedding problem given
     a list of qubits for each problem node and an adjacency list for the
     target chimera structure (with qbit labels as verticed)
 
-    inputs: h       : list of on-site terms for each problem node
-            J       : list of coupling terms between each problem node
+    inputs: h       : dict of on-site terms for each problem
+            J       : dict of coupling terms between each problem node
             qbits   : list of qbits for each problem node
             chimera : adjacency list structure for the target chimera graph
             flip_J   : flag for flipping the sign of J
     '''
 
     # check that h and J are normalised
-    max_hj = max(np.max(np.abs(h)), np.max(np.abs(J)))
+    max_hj = max(np.max(np.abs(h.values())),
+                 max([max(J[node].values()) for node in J]))
     if max_hj == 0:
         print('Invalid problem statement. All zero parameters')
         return None
     if max_hj != 1:
-        print('Normalising h and J by factor {0}'.format(max_hj))
-        h = (h/max_hj).tolist()
-        J = J/max_hj
+        print('Normalizing h and J by factor {0}'.format(max_hj))
+        h = {node: h[node]/max_hj for node in h}
+        J = {n1: {n2: J[n1][n2]/max_hj for n2 in J[n1]} for n1 in J}
 
     # flip J signs if flagged
     if flip_J:
         print('Flipping signs of J coefficients')
-        J = -J
+        J = {n1: {n2: -J[n1][n2] for n2 in J[n1]} for n1 in J}
 
     # build chimera graph
     G_chimera = nx.Graph(chimera)
@@ -255,7 +265,7 @@ def assign_parameters(h, J, qbits, chimera, flip_J=False):
     except KeyError as e:
         print('Qbit label error during Chimera graph partition...')
         print(e.message)
-        return None
+        return None, None
 
     # remove unwanted edges
     if strategy.lower() == 'maximal':
@@ -264,10 +274,10 @@ def assign_parameters(h, J, qbits, chimera, flip_J=False):
         subgraphs, edges = minimal_couplers(subgraphs, edges)
     else:
         print('No valid edge selection strategy given...')
-        return None
+        return None, None
 
     # convert subgraphs and edges to parameter dictionaries
-    hq, Jq = convert_to_parameters(h, J, subgraphs, edges)
+    hq, Jq = convert_to_parameters(h, J, subgraphs, edges, J_inner=J_inner)
 
     # return parameter
     return hq, Jq

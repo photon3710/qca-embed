@@ -17,6 +17,7 @@ from qca_widget import QCAWidget
 from chimera_widget import ChimeraWidget
 from core.classes import Embedding
 
+from pprint import pprint
 
 class MainWindow(QtGui.QMainWindow):
     '''Main Window widget for embedder application'''
@@ -119,6 +120,9 @@ class MainWindow(QtGui.QMainWindow):
         self.action_save_all.setEnabled(False)
         
         self.action_export_coefs = QtGui.QAction('Export coef file...', self)
+        self.action_export_coefs.setIcon(
+            QtGui.QIcon(settings.ICO_DIR+'upload.png'))
+        self.action_export_coefs.setStatusTip('Create coefficient files...')
         self.action_export_coefs.triggered.connect(self.export_coefs)
         self.action_export_coefs.setEnabled(False)
 
@@ -201,6 +205,7 @@ class MainWindow(QtGui.QMainWindow):
         toolbar.addAction(self.action_switch_adj)
         toolbar.addAction(self.action_embed)
         toolbar.addAction(self.action_del_embed)
+        toolbar.addAction(self.action_export_coefs)
         
     def reset(self):
         '''Delete all embedding and reset counters'''
@@ -608,7 +613,15 @@ class MainWindow(QtGui.QMainWindow):
         '''Determine the smallest set of files which need to be produced to
         allow for all unique input combinations to all independent embeddings.
         Save each to a file'''
-        pass
+        
+        embedding = self.embeddings[self.active_embedding]
+        pols = embedding.generate_driver_pols()
+        if len(pols)==0:
+            pols = [[]]
+        for pol in pols:
+            h, J = embedding.generate_coefs(pol)
+            pprint(h)
+            pprint(J)
 
     # EVENT HANDLING
 
