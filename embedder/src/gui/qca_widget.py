@@ -9,7 +9,7 @@
 # Licence: Copyright 2015
 # -----------------------------------
 
-from PyQt4 import QtGui, QtCore
+from PyQt4 import QtGui, QtCore, QtSvg
 import gui_settings as settings
 from core.parse_qca import parse_qca_file
 from core.auxil import convert_to_full_adjacency, convert_to_lim_adjacency,\
@@ -132,21 +132,6 @@ class Canvas(QtGui.QWidget):
         self.w = 1.
         self.h = 1.
 
-    # Interrupts
-    def paintEvent(self, e):
-        ''' '''
-        painter = QtGui.QPainter()
-        painter.begin(self)
-        self.moveCells()
-        self.drawConnections(painter)
-        self.drawCells(painter)
-        painter.end()
-
-    def mouseDoubleClickEvent(self, e):
-        ''' '''
-        pass
-        # determine which cell was clicked
-
     def rescale(self, zoom=True, f=1.):
         ''' '''
         step = f*settings.MAG_STEP
@@ -194,6 +179,26 @@ class Canvas(QtGui.QWidget):
                         'strong' if abs(J0[i, j]) > 0.5 else 'weak'])
                     painter.setPen(pen)
                     painter.drawLine(X[i], Y[i], X[j], Y[j])
+
+    def paint(self, painter):
+        ''' '''
+        self.moveCells()
+        self.drawConnections(painter)
+        self.drawCells(painter)
+
+    # Interrupts
+
+    def paintEvent(self, e):
+        ''' '''
+        painter = QtGui.QPainter()
+        painter.begin(self)
+        self.paint(painter)
+        painter.end()
+
+    def mouseDoubleClickEvent(self, e):
+        ''' '''
+        pass
+        # determine which cell was clicked
 
 
 class QCAWidget(QtGui.QScrollArea):
@@ -337,6 +342,19 @@ class QCAWidget(QtGui.QScrollArea):
         '''Return needed parameters for embedding'''
         
         return self.J0, self.cells
+
+    def save_svg(self, fname):
+        '''Write the QCA circuit to an svg file'''
+        
+        generator = QtSvg.QSvgGenerator()
+        generator.setFileName(fname)
+        generator.setSize(self.canvas.size())
+        generator.setViewBox(self.canvas.rect())
+        
+        painter = QtGui.QPainter()
+        painter.begin(generator)
+        self.canvas.paint(painter)
+        painter.end()
 
     # interrupts
 

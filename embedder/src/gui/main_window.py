@@ -37,6 +37,7 @@ class MainWindow(QtGui.QMainWindow):
         self.embed_dir = os.getcwd()
         self.chimera_dir = os.getcwd()
         self.coef_dir = os.getcwd()
+        self.svg_dir = os.getcwd()
         
         # functionality parameters
         
@@ -75,6 +76,8 @@ class MainWindow(QtGui.QMainWindow):
         # Chimera widget
         self.chimera_widget = ChimeraWidget(self)
         self.chimera_file = os.path.relpath(settings.CHIMERA_DEFAULT_FILE)
+        self.chimera_widget.updateChimera(self.chimera_file)
+        self.action_save_chimera_svg.setEnabled(True)
 
         hbox.addWidget(self.qca_widget, stretch=4)
         hbox.addWidget(self.chimera_widget, stretch=4)
@@ -99,6 +102,8 @@ class MainWindow(QtGui.QMainWindow):
 
         # construct actions
 
+        # Loading methods
+
         qcaFileAction = QtGui.QAction(
             QtGui.QIcon(settings.ICO_DIR+'qca_file.png'),
             'Open QCA file...', self)
@@ -114,6 +119,8 @@ class MainWindow(QtGui.QMainWindow):
             'Open chimera file...', self)
         chimeraFileAction.triggered.connect(self.load_chimera_file)
         
+        # Saving methods
+
         self.action_save_embedding = QtGui.QAction('Save active embedding...', self)
         self.action_save_embedding.triggered.connect(self.save_active_embedding)
         self.action_save_embedding.setEnabled(False)
@@ -128,10 +135,24 @@ class MainWindow(QtGui.QMainWindow):
         self.action_export_coefs.setStatusTip('Create coefficient files...')
         self.action_export_coefs.triggered.connect(self.export_coefs)
         self.action_export_coefs.setEnabled(False)
+        
+        # SVG exporting
+        
+        self.action_save_qca_svg = QtGui.QAction('Save qca widget as SVG...', self)
+        self.action_save_qca_svg.triggered.connect(self.save_qca_svg)
+        self.action_save_qca_svg.setEnabled(False)
+        
+        self.action_save_chimera_svg = QtGui.QAction('Save chimera widget as SVG...', self)
+        self.action_save_chimera_svg.triggered.connect(self.save_chimera_svg)
+        self.action_save_chimera_svg.setEnabled(False)
+        
+        # exit
 
         exitAction = QtGui.QAction('Exit', self)
         exitAction.setShortcut('Ctrl+W')
         exitAction.triggered.connect(self.close)
+        
+        # Tool menu
         
         self.action_dense_embed_flag = QtGui.QAction('Dense', self)
         self.action_dense_embed_flag.triggered.connect(self.switch_embedder)
@@ -164,6 +185,9 @@ class MainWindow(QtGui.QMainWindow):
         file_menu.addAction(self.action_save_embedding)
         file_menu.addAction(self.action_save_all)
         file_menu.addAction(self.action_export_coefs)
+        file_menu.addSeparator()
+        file_menu.addAction(self.action_save_qca_svg)
+        file_menu.addAction(self.action_save_chimera_svg)
         file_menu.addSeparator()
         file_menu.addAction(exitAction)
 
@@ -232,7 +256,7 @@ class MainWindow(QtGui.QMainWindow):
         toolbar.addAction(self.action_export_coefs)
         
     def reset(self):
-        '''Delete all embedding and reset counters'''
+        '''Delete all embeddings and reset counters'''
         
         for ind in self.embeddings:
             self.active_embedding = ind
@@ -699,6 +723,7 @@ class MainWindow(QtGui.QMainWindow):
             self.qca_active = True
             self.action_embed.setEnabled(True)
             self.action_switch_adj.setEnabled(True)
+            self.action_save_qca_svg.setEnabled(True)
 
     def load_chimera_file(self):
         '''Prompt filename for chimera structure'''
@@ -804,6 +829,30 @@ class MainWindow(QtGui.QMainWindow):
         except IOError:
             print('Failed to save coefficient files...')
             return
+    
+    # VECTOR GRAPHICS
+    
+    def save_qca_svg(self):
+        ''' '''
+        
+        fname = str(QtGui.QFileDialog.getSaveFileName(self, 'Save SVG file...',
+                                                  self.svg_dir))
+        
+        if fname:
+            self.svg_dir = os.path.dirname(fname)
+        
+        self.qca_widget.save_svg(fname)
+    
+    def save_chimera_svg(self):
+        ''' '''
+        
+        fname = str(QtGui.QFileDialog.getSaveFileName(self, 'Save SVG file...',
+                                                  self.svg_dir))
+        
+        if fname:
+            self.svg_dir = os.path.dirname(fname)
+        
+        self.chimera_widget.save_svg(fname)
 
     # EVENT HANDLING
 

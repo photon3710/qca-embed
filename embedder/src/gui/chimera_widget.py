@@ -9,7 +9,7 @@
 # Licence: Copyright 2015
 # -----------------------------------
 
-from PyQt4 import QtGui, QtCore
+from PyQt4 import QtGui, QtCore, QtSvg
 import gui_settings as settings
 from core.chimera import load_chimera_file, linear_to_tuple
 
@@ -257,12 +257,9 @@ class Canvas(QtGui.QWidget):
             tile = self.parent.tiles[key]
             tile.drawLabel(painter)
 
-    def paintEvent(self, e):
+    def paint(self, painter):
         ''' '''
-
-        painter = QtGui.QPainter()
-        painter.begin(self)
-
+        
         # draw tile background
         self.drawTiles(painter)
 
@@ -274,7 +271,13 @@ class Canvas(QtGui.QWidget):
 
         # draw tile labels
         self.drawLabels(painter)
+        
+    def paintEvent(self, e):
+        ''' '''
 
+        painter = QtGui.QPainter()
+        painter.begin(self)
+        self.paint(painter)
         painter.end()
 
 
@@ -298,7 +301,7 @@ class ChimeraWidget(QtGui.QScrollArea):
 
         self.initUI()
 
-        self.updateChimera(settings.CHIMERA_DEFAULT_FILE)
+#        self.updateChimera(settings.CHIMERA_DEFAULT_FILE)
 
     def initUI(self):
         '''Initialise UI'''
@@ -535,6 +538,18 @@ class ChimeraWidget(QtGui.QScrollArea):
         for tile in tiles:
             self.canvas.update(self.tiles[tile].geometry())
 
+    def save_svg(self, fname):
+        '''Write the cchimera graph to an svg file'''
+        
+        generator = QtSvg.QSvgGenerator()
+        generator.setFileName(fname)
+        generator.setSize(self.canvas.size())
+        generator.setViewBox(self.canvas.rect())
+        
+        painter = QtGui.QPainter()
+        painter.begin(generator)
+        self.canvas.paint(painter)
+        painter.end()
 
     # EVENT HANDLERS
 

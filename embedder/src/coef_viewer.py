@@ -8,7 +8,7 @@
 # Last Modified: 12.08.2015
 #---------------------------------------------------------
 
-from PyQt4 import QtGui, QtCore
+from PyQt4 import QtGui, QtCore, QtSvg
 from core.chimera import load_chimera_file
 from core.chimera import linear_to_tuple
 
@@ -38,7 +38,6 @@ red = QtGui.QColor(255, 0, 0)
 blue = QtGui.QColor(0, 0, 255)
 black = QtGui.QColor(0, 0, 0)
 background = QtGui.QColor(255, 255, 255)
-#blank = QtGui.QColor(0, 0, 0, 0)
 blank = black
 
 def shade(color, l):
@@ -200,16 +199,19 @@ class Canvas(QtGui.QWidget):
                 painter.setBrush(brush)
                 painter.drawEllipse(rect)
         
-    # EVENT HANDLERS
-    
-    def paintEvent(self, e):
+    def paint(self, painter):
         ''' '''
-        painter = QtGui.QPainter()
-        painter.begin(self)
         self.move_nodes()
         self.draw_tiles(painter)
         self.draw_edges(painter)
         self.draw_nodes(painter)
+
+    # EVENT HANDLERS
+    def paintEvent(self, e):
+        ''' '''
+        painter = QtGui.QPainter()
+        painter.begin(self)
+        self.paint(painter)
         painter.end()
 
 class ChimeraWidget(QtGui.QScrollArea):
@@ -332,6 +334,24 @@ class ChimeraWidget(QtGui.QScrollArea):
         
         self.canvas.update()
     
+    def save_canvas(self):
+        ''' '''
+        
+        fname = QtGui.QFileDialog.getSaveFileName(self, 'Save SVG file...')
+        
+        if len(fname) == 0:
+            return
+
+        generator = QtSvg.QSvgGenerator()
+        generator.setFileName(fname)
+        generator.setSize(self.canvas.size())
+        generator.setViewBox(self.canvas.rect())
+        
+        painter = QtGui.QPainter()
+        painter.begin(generator)
+        self.canvas.paint(painter)
+        painter.end()
+    
     # EVENT HANDLERS
     
     def mousePressEvent(self, e):
@@ -361,6 +381,8 @@ class ChimeraWidget(QtGui.QScrollArea):
             self.canvas.rescale(zoom=True)
         elif e.key() == QtCore.Qt.Key_Control:
             self.zoom_flag = True
+        elif e.key() == QtCore.Qt.Key_S:
+            self.save_canvas()
         else:
             e.ignore()
 
