@@ -42,6 +42,7 @@ class MainWindow(QtGui.QMainWindow):
         self.qca_active = False     # True when QCAWidget set
         self.full_adj = True        # True when using full adjacency
         self.use_dense = True       # True if using Dense Placement embedder
+        self.tile_style = 0         # tile style
         
         self.embeddings = {}        # list of embeddings
         self.active_embedding = -1  # index of active embedding
@@ -137,6 +138,22 @@ class MainWindow(QtGui.QMainWindow):
         self.action_heur_embed_flag = QtGui.QAction('Heuristic', self)
         self.action_heur_embed_flag.triggered.connect(self.switch_embedder)
         self.action_heur_embed_flag.setEnabled(True)
+                
+        tile_func_ab = lambda: self.set_tile_style(0)
+        tile_func_a = lambda: self.set_tile_style(-1)
+        tile_func_b = lambda: self.set_tile_style(1)
+
+        self.action_tile_AB_flag = QtGui.QAction('AB', self)
+        self.action_tile_AB_flag.triggered.connect(tile_func_ab)
+        self.action_tile_AB_flag.setEnabled(False)
+
+        self.action_tile_A_flag = QtGui.QAction('A', self)
+        self.action_tile_A_flag.triggered.connect(tile_func_a)
+        self.action_tile_A_flag.setEnabled(True)
+        
+        self.action_tile_B_flag = QtGui.QAction('B', self)
+        self.action_tile_B_flag.triggered.connect(tile_func_b)
+        self.action_tile_B_flag.setEnabled(True)    
 
         file_menu.addAction(qcaFileAction)
         file_menu.addAction(embedFileAction)
@@ -151,6 +168,11 @@ class MainWindow(QtGui.QMainWindow):
         embedder_menu = tool_menu.addMenu('Embedding method')
         embedder_menu.addAction(self.action_dense_embed_flag)
         embedder_menu.addAction(self.action_heur_embed_flag)
+        
+        tile_style_menu = tool_menu.addMenu('Tile style')
+        tile_style_menu.addAction(self.action_tile_AB_flag)
+        tile_style_menu.addAction(self.action_tile_A_flag)
+        tile_style_menu.addAction(self.action_tile_B_flag)
 
     def init_toolbar(self):
         ''' '''
@@ -235,6 +257,34 @@ class MainWindow(QtGui.QMainWindow):
         self.action_heur_embed_flag.setEnabled(not self.use_dense)
         self.use_dense = not self.use_dense
         
+    def set_tile_style(self, style):
+        ''' '''
+        
+        self.tile_style = style
+        self.action_tile_AB_flag.setEnabled(True)
+        self.action_tile_A_flag.setEnabled(True)
+        self.action_tile_B_flag.setEnabled(True)
+        if style==0:
+            self.action_tile_AB_flag.setEnabled(False)
+        elif style<0:
+            self.action_tile_A_flag.setEnabled(False)
+        else:
+            self.action_tile_B_flag.setEnabled(False)
+
+    def apply_tile_style(self, chimera_adj):
+        ''' '''
+        
+        if self.tile_style == 0:
+            return chimera_adj, 4
+        
+        check = lambda qb: (qb[3]%2) == (0 if self.tile_style < 0 else 1)
+        
+        chim_adj = {qb1: [qb2 for qb2 in chimera_adj[qb1] if check(qb2)]
+            for qb1 in chimera_adj if check(qb1)}
+
+        return chim_adj, 2
+
+        
     def embed_circuit(self):
         '''Run embedding on displayed circuit into selected chimera 
         sub-graph'''
@@ -245,6 +295,9 @@ class MainWindow(QtGui.QMainWindow):
             # get chimera sub-graph
             M, N, chimera_adj, active_range = self.chimera_widget.getActiveGraph()
             
+            # apply tile style
+            chimera_adj, L = self.apply_tile_style(chimera_adj)
+
             # get qca parameters
             J, cells = self.qca_widget.prepareCircuit()
             
@@ -560,6 +613,10 @@ class MainWindow(QtGui.QMainWindow):
         embedding = Embedding()
         try:
             embedding.from_file(fname, self.chimera_file)
+            # set qca parameters
+            self.qca_widget.updateCircuit(embedding.qca_file, embedding.full_adj)
+            J, cells = self.qca_widget.prepareCircuit()
+            embedding.set_qca(J, cells, embedding.full_adj)
         except:
             print('Failed to load embedding')
             return
