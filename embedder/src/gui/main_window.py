@@ -18,6 +18,8 @@ from chimera_widget import ChimeraWidget
 from core.classes import Embedding
 from core.chimera import tuple_to_linear
 
+from pprint import pprint
+
 class MainWindow(QtGui.QMainWindow):
     '''Main Window widget for embedder application'''
 
@@ -606,13 +608,13 @@ class MainWindow(QtGui.QMainWindow):
             print('Failed to save embeddings...')
             return
         
-    def load_embedding(self, fname):
+    def load_embedding(self, fname, chimera_adj):
         ''' '''
         
         # create embedding
         embedding = Embedding()
         try:
-            embedding.from_file(fname, self.chimera_file)
+            embedding.from_file(fname, self.chimera_file, chimera_adj)
             # set qca parameters
             self.qca_widget.updateCircuit(embedding.qca_file, embedding.full_adj)
             J, cells = self.qca_widget.prepareCircuit()
@@ -660,11 +662,11 @@ class MainWindow(QtGui.QMainWindow):
         ndir = os.path.dirname(fname)
         chim_file = os.path.normpath(os.path.join(ndir, info['chimera_file']))
         self.chimera_widget.updateChimera(chim_file)
-        
+        M, N, chimera_adj, active_range = self.chimera_widget.getActiveGraph()
         for ind in inds:
             ndir = os.path.dirname(fname)
             fn = os.path.normpath(os.path.join(ndir, info[str(ind)]))
-            self.load_embedding(fn)
+            self.load_embedding(fn, chimera_adj)
         
         if not self.qca_active:
             self.qca_active = True

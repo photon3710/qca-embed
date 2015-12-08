@@ -257,7 +257,7 @@ class Embedding:
 
     # FILE IO
 
-    def from_file(self, fname, chimera_file):
+    def from_file(self, fname, chimera_file, chimera_adj):
         '''Load an embedder object from file relative to main directory'''
 
         try:
@@ -301,6 +301,21 @@ class Embedding:
         N0 = int(info['N0'])
         self.active_range = {'M': [M0, M0+self.M],
                              'N': [N0, N0+self.N]}
+                             
+        # refine chimera adjacency
+        tile_check = lambda m, n, h, l: \
+            m >= self.active_range['M'][0] and\
+            m < self.active_range['M'][1] and\
+            n >= self.active_range['N'][0] and\
+            n < self.active_range['N'][1]
+
+        chimera_adj = {k1: [k2 for k2 in chimera_adj[k1] if tile_check(*k2)]
+            for k1 in chimera_adj if tile_check(*k1)}
+        
+        offset = lambda m, n, h, l: (m-M0, n-N0, h, l)
+        chimera_adj = {offset(*k1): [offset(*k2) for k2 in chimera_adj[k1]]
+            for k1 in chimera_adj}
+        self.chimera_adj = chimera_adj
 
         # get models
         models = {}

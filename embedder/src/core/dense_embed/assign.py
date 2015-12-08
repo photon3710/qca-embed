@@ -238,8 +238,12 @@ def assign_parameters(h, J, qbits, chimera, flip_J=False, J_inner=-1):
             flip_J   : flag for flipping the sign of J
     '''
 
+    pprint(h)
+    pprint(J)
+    pprint(qbits)
+    pprint(chimera)
     # check that h and J are normalised
-    max_hj = max(np.max(np.abs(h.values())),
+    max_hj = max( abs(J_inner), np.max(np.abs(h.values())),
                  max([max(J[node].values()) for node in J]))
     if max_hj == 0:
         print('Invalid problem statement. All zero parameters')

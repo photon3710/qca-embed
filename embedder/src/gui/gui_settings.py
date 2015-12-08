@@ -50,7 +50,7 @@ INT_PEN_WIDTH = 3
 MAX_MAG = 5             # maximum magnification
 MIN_MAG = 0.1           # minimum magnification
 MAG_STEP = 0.1          # magnification step
-MAG_WHEEL_FACT = 0.2    # factor for wheel zoom\
+MAG_WHEEL_FACT = 0.2    # factor for wheel zoom
 
 QCA_CANVAS_OFFSET = 0.3
 
