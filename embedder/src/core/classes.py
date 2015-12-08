@@ -216,7 +216,7 @@ class Embedding:
 
         # driver cell contributions
         drivers = sorted(self.drivers)  # list of drivers
-        for i in range(len(pols)):
+        for i in range(len(drivers)):
             P[drivers[i], 0] = pols[i]
 
         # get h coefficients

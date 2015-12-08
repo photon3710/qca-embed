@@ -16,8 +16,7 @@ import gui_settings as settings
 from qca_widget import QCAWidget
 from chimera_widget import ChimeraWidget
 from core.classes import Embedding
-
-from pprint import pprint
+from core.chimera import tuple_to_linear
 
 class MainWindow(QtGui.QMainWindow):
     '''Main Window widget for embedder application'''
@@ -35,6 +34,7 @@ class MainWindow(QtGui.QMainWindow):
         self.qca_dir = os.getcwd()
         self.embed_dir = os.getcwd()
         self.chimera_dir = os.getcwd()
+        self.coef_dir = os.getcwd()
         
         # functionality parameters
         
@@ -386,6 +386,54 @@ class MainWindow(QtGui.QMainWindow):
 
     # FILE IO
     
+    def create_coef_pol_file(self, fname, pol_sets):
+        ''' '''
+        
+        try:
+            fp = open(fname, 'w')
+        except:
+            print('Failed to open file: {0}'.format(fname))
+            raise IOError
+        
+        for pol_set in pol_sets:
+            for ind in pol_set:
+                pols = pol_set[ind]
+                fp.write('{0}: {1}\n'.format(ind, str(pols)))
+            fp.write('\n')
+
+        fp.close()
+
+    def save_coef_file(self, hq, Jq, fname):
+        ''' '''
+        
+        try:
+            fp = open(fname, 'w')
+        except:
+            print('Failed to open file: {0}'.format(fname))
+            raise IOError
+        
+        # chimera size
+        M, N, L = self.chimera_widget.M, self.chimera_widget.N, 4
+        Nqbits = 2*M*N*L
+        
+        fp.write('{0}\n'.format(Nqbits))
+        
+        # h parameters
+        for qb in sorted(hq):
+            qbl = tuple_to_linear(qb, M, N, L=L, index0=False)
+            if hq[qb] != 0:
+                fp.write('{0} {1} {2}\n'.format(qbl, qbl, round(hq[qb],3)))
+        
+        # J parameters
+        for qb1, qb2 in sorted(Jq):
+            qbl1 = tuple_to_linear(qb1, M, N, L=L, index0=False)
+            qbl2 = tuple_to_linear(qb2, M, N, L=L, index0=False)
+            if Jq[(qb1, qb2)] != 0:
+                fp.write('{0} {1} {2}\n'.format(qbl1, qbl2,
+                         round(Jq[(qb1, qb2)], 3)))
+
+        fp.close()
+    
     def create_embed_file(self, fname):
         '''Create an info file for all current embeddings'''
         
@@ -404,7 +452,7 @@ class MainWindow(QtGui.QMainWindow):
             fp.write('{0}: {0}.txt\n'.format(ind))
         
         fp.close()
-        
+
     def save_active_embedding(self):
         '''save the active embedding'''
         
@@ -614,14 +662,89 @@ class MainWindow(QtGui.QMainWindow):
         allow for all unique input combinations to all independent embeddings.
         Save each to a file'''
         
-        embedding = self.embeddings[self.active_embedding]
-        pols = embedding.generate_driver_pols()
-        if len(pols)==0:
-            pols = [[]]
-        for pol in pols:
-            h, J = embedding.generate_coefs(pol)
-            pprint(h)
-            pprint(J)
+        # prompt for directory name
+        dir_name = str(QtGui.QFileDialog.getExistingDirectory(
+            self, 'Create/Select empty directory...', self.coef_dir))
+        
+        if not dir_name:
+            return
+
+        # convert to standard form
+        dir_name = os.path.join(os.path.normpath(dir_name), '')
+        
+        # update embed home directory
+        self.coef_dir = dir_name
+        
+        # if directory does not exist, create it
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
+
+        # if files exist in directory, prompt user
+        files = [f for f in os.listdir(dir_name)\
+            if os.path.isfile(os.path.join(dir_name, f))]
+
+        if len(files) > 0:
+            reply = QtGui.QMessageBox.question(self, 'Message',
+            'This directory already contain content that will be deleted. Do\
+            you want to continue?',
+            QtGui.QMessageBox.Yes | QtGui.QMessageBox.Cancel,
+            QtGui.QMessageBox.Cancel)
+        
+            if reply == QtGui.QMessageBox.Yes:
+                for f in files:
+                    os.remove(os.path.join(dir_name, f))
+            else:
+                return
+
+        # generate list of all polarizations
+        driver_pols = {ind: self.embeddings[ind].generate_driver_pols()
+            for ind in self.embeddings}
+        Npol = max([len(pols) for pols in driver_pols.values()])
+        for ind in driver_pols:
+            N = len(driver_pols[ind])
+            if N == 0:
+                driver_pols[ind] = [[]]*Npol
+            else:
+                driver_pols[ind] *= Npol/N
+        pol_sets = []
+        for n in range(Npol):
+            pol_sets.append({ind: driver_pols[ind][n] for ind in driver_pols})
+        
+        # find the coefficients for each set of polarizations
+        HQs = []
+        JQs = []
+        for pol_set in pol_sets:
+            hq = {}
+            Jq = {}
+            for ind in self.embeddings:
+                embedding = self.embeddings[ind]
+                pols = pol_set[ind]
+                if len(pols)==0:
+                    pols = [[]]
+                h, J = embedding.generate_coefs(pols)
+                # add new parameters
+                for q in h:
+                    hq[q] = h[q]
+                for q1, q2 in J:
+                    Jq[(q1, q2)] = J[(q1, q2)]
+        
+            HQs.append(hq)
+            JQs.append(Jq)
+
+        try:
+            # create pol file
+            self.create_coef_pol_file(os.path.join(dir_name,
+                                                   'pols.info'), pol_sets)
+            
+            # create each coef file
+            for i in range(Npol):
+                hq, Jq = HQs[i], JQs[i]
+                fname = os.path.join(dir_name, 'coefs{0}.txt'.format(i))
+                self.save_coef_file(hq, Jq, fname)
+
+        except IOError:
+            print('Failed to save coefficient files...')
+            return
 
     # EVENT HANDLING
 

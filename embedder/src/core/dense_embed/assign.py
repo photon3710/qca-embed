@@ -171,9 +171,7 @@ def partition_graph(G, parts):
     subgraphs = {}
     for node in parts:
         part = parts[node]
-        pprint(part)
         subgraph = G.subgraph(part)
-        pprint(subgraph.nodes())
         if len(subgraph) < len(part):
             conflicts = [n for n in part if not n in subgraph.nodes()]
             raise KeyError('Invalid indices given: {0}'.format(conflicts))
@@ -253,7 +251,7 @@ def assign_parameters(h, J, qbits, chimera, flip_J=False, J_inner=-1):
 
     # flip J signs if flagged
     if flip_J:
-        print('Flipping signs of J coefficients')
+#        print('Flipping signs of J coefficients')
         J = {n1: {n2: -J[n1][n2] for n2 in J[n1]} for n1 in J}
 
     # build chimera graph
