@@ -74,7 +74,8 @@ class QCACellWidget(QtGui.QWidget):
         elif self.type == 2:    # output
             color = settings.QCA_COL['output']
         elif self.type == 3:    # fixed
-            color = settings.QCA_COL['fixed']
+#            color = settings.QCA_COL['fixed']
+            color = settings.RED if self.pol > 0 else settings.BLUE
         else:
             print('Invalid cell type')
             color = settings.QCA_COL['default']

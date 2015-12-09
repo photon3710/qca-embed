@@ -18,8 +18,6 @@ from chimera_widget import ChimeraWidget
 from core.classes import Embedding
 from core.chimera import tuple_to_linear
 
-from pprint import pprint
-
 class MainWindow(QtGui.QMainWindow):
     '''Main Window widget for embedder application'''
 

@@ -28,10 +28,12 @@ CELL_SIZE = .8*CELL_SEP     # Size of QCA cell
 #CELL_ALPHA = int(.15*255)   # 
 
 # --colors
+RED = QtGui.QColor(255, 0, 0)
+BLUE = QtGui.QColor(0, 0, 255)
 QCA_COL = {'default': QtGui.QColor(255, 255, 255),
            'inactive': QtGui.QColor(100, 100, 100),
-           'output': QtGui.QColor(0, 200, 0),
-           'input': QtGui.QColor(200, 0, 0),
+           'output': QtGui.QColor(255, 255, 0),
+           'input': QtGui.QColor(0, 200, 0),
            'fixed': QtGui.QColor(255, 165, 0),
            'clicked': QtGui.QColor(0, 150, 150)}
 
