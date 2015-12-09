@@ -13,7 +13,6 @@ import networkx as nx
 import itertools
 import re
 
-from pprint import pprint
 # ASSIGNMENT PARAMETERS
 
 strategies = ['maximal',    # Use as many couplers as possible
@@ -238,10 +237,6 @@ def assign_parameters(h, J, qbits, chimera, flip_J=False, J_inner=-1):
             flip_J   : flag for flipping the sign of J
     '''
 
-    pprint(h)
-    pprint(J)
-    pprint(qbits)
-    pprint(chimera)
     # check that h and J are normalised
     max_hj = max( abs(J_inner), np.max(np.abs(h.values())),
                  max([max(J[node].values()) for node in J]))

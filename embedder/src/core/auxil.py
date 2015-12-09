@@ -90,17 +90,6 @@ def getEk(c1, c2, DR=2):
 
     return Ek
 
-
-def comp_E_nn(spacing):
-    '''compute the kink energy for two nearest interacting non-rotated cells'''
-
-    A = 0.588672
-
-    E_nn = A/(spacing*epsr)
-
-    return E_nn
-
-
 def prepare_convert_adj(cells, spacing, J):
     '''Prepares useful variables for converting from the parse_qca J matrix to
     a reduced adjacency form.
@@ -116,7 +105,7 @@ def prepare_convert_adj(cells, spacing, J):
     '''
 
     # scale J by the kink energy of two non-rotated adjacent cells
-    E_nn = comp_E_nn(spacing)
+    E_nn = np.max(np.abs(J))
     Js = np.round(J/E_nn, 4)
 
     # determine interaction type of each element of J:
@@ -146,21 +135,21 @@ def identify_inverters(Js):
     
     J0 = Js/np.max(np.abs(Js))
     
-    # an inverter is a cell with one strong interaction and two weak
+    # an inverter is a cell with at most one strong interaction and two weak
     # interactions, each having one strong interaction
     invs = {}
 
     # count number of strong interactions for each cell
     num_strong = [np.count_nonzero(np.abs(J0[i]) > STRONG_THRESH) 
         for i in xrange(J0.shape[0])]
-    
+
     for c1 in xrange(J0.shape[0]):
-        if num_strong[c1] == 1:   # check if an inverter
+        if num_strong[c1] <= 1:   # check if an inverter
             adj = []
             for c2 in J0[c1].nonzero()[0].tolist():
                 if np.abs(J0[c1, c2]) < STRONG_THRESH and num_strong[c2]==1:
                     adj.append(c2)
-            if len(adj) == 1:
+            if len(adj) == 2:
                 invs[c1] = adj
     
     return invs
