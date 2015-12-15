@@ -19,8 +19,8 @@ from core.chimera import tuple_to_linear, linear_to_tuple
 import core.core_settings as settings
 
 from dwave_sapi import find_embedding
-from pprint import pprint
 
+SABOTAGE = False
 
 class Embedding:
     '''Container class for an embedding'''
@@ -99,8 +99,9 @@ class Embedding:
             return
 
         # sort embedding by number of qubits used (total path length)
+        ind = -1 if SABOTAGE else 0
         cell_map, paths = sorted(embeds,
-                                 key=lambda x: sum([len(p) for p in x[1]]))[0]
+                                 key=lambda x: sum([len(p) for p in x[1]]))[ind]
         self.good = True
 
         # get cell models
