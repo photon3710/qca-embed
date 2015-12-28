@@ -26,7 +26,8 @@ CELL_MODES = {'QCAD_CELL_MODE_NORMAL': 0,
               'QCAD_CELL_MODE_CLUSTER': 3}
 
 R_MAX = 1.8             # maximum interaction range
-STRONG_THRESH = 0.5     # threshold for qualifying as a strong interaction
+STRONG_THRESH = 0.3     # threshold for qualifying as a strong interaction
+D_ERR = 0.2             # allowed error in DX, DY equality
 
 
 ### GENERAL FUNCTIONS
@@ -36,6 +37,11 @@ def pinch(string, pre, post):
     '''selects the string between the first instance of substring (pre) and
     the last instance of substring (post)'''
     return string.partition(pre)[2].rpartition(post)[0]
+
+
+def zeq(x, y, err):
+    '''returns True if x and y differ by at most err'''
+    return abs(x-y) < err
 
 
 def gen_pols(n):
@@ -126,60 +132,117 @@ def prepare_convert_adj(cells, spacing, J):
 
     DX = (X.T - X)/spacing
     DY = (Y - Y.T)/spacing
-
-    return Js, T, DX, DY
-
-
-def identify_inverters(Js):
-    '''Identify inverter cells'''
     
-    J0 = Js/np.max(np.abs(Js))
+    # 
+    
+    N = len(cells)
+    A = np.zeros([len(cells), len(cells)], dtype=int)
+
+    for i in range(N-1):
+        for j in range(i+1, N):
+            dx, dy = abs(DX[i, j]), abs(DY[i, j])
+            # first check for adapter condition
+            if zeq(min(dx, dy), 0.5, D_ERR) and zeq(max(dx, dy), 1, D_ERR):
+                A[i, j] = 3
+            elif T[i, j] == 0:
+                continue
+            # (1, 0) or (0, 1) interaction
+            elif zeq(dx+dy, 1, D_ERR):
+                A[i, j] = 1
+            # (1, 1) interaction
+            elif zeq(dx, 1, D_ERR) and zeq(dy, 1, D_ERR):
+                A[i, j] = -1
+            elif zeq(min(dx, dy), 0, D_ERR) and zeq(max(dx, dy), 2, D_ERR):
+                A[i, j] = 2
+            elif zeq(min(dx, dy), 1, D_ERR) and zeq(max(dx, dy), 2, D_ERR):
+                A[i, j] = -2
+
+    A += A.T
+
+    return Js, T, A, DX, DY
+
+
+def identify_inverters(A):
+    '''Identify inverter cells'''
     
     # an inverter is a cell with at most one strong interaction and two weak
     # interactions, each having one strong interaction
-    invs = {}
+    invs = {}    
+    N = A.shape[0]
 
     # count number of strong interactions for each cell
-    num_strong = [np.count_nonzero(np.abs(J0[i]) > STRONG_THRESH) 
-        for i in xrange(J0.shape[0])]
+    num_strong = [np.count_nonzero(A[i,:] == 1) for i in xrange(N)]
 
-    for c1 in xrange(J0.shape[0]):
-        if num_strong[c1] <= 1:   # check if an inverter
-            adj = []
-            for c2 in J0[c1].nonzero()[0].tolist():
-                if np.abs(J0[c1, c2]) < STRONG_THRESH and num_strong[c2]==1:
-                    adj.append(c2)
+    for i in xrange(N):
+        if num_strong[i] <= 1:   # check if an inverter
+            adj = [j for j in range(N) if A[i, j] == -1 and num_strong[j] == 1]
             if len(adj) == 2:
-                invs[c1] = adj
+                for k in range(N):
+                    if A[adj[0], k] == 1 and A[adj[1], k] == 1:
+                        break
+                else:
+                    invs[i] = adj
     
     return invs
-            
 
-def convert_to_full_adjacency(J, Js, T, DX, DY):
+
+def identify_xovers(A):
+    '''Identify all rotated crossover cells in a circuit'''
+    
+    # xover condition: two cells have A=2 and no path of A:1,1
+    N = A.shape[0]
+    cands = [(i,j) for i in range(N-1) for j in range(i+1, N) if A[i,j] == 2]
+    
+    xovers = []
+    for cand in cands:
+        for k in range(N):
+            if A[cand[0], k] == 1 and A[cand[1], k] == 1:
+                break
+        else:
+            xovers.append(cand)
+    
+    return xovers
+
+
+def convert_to_full_adjacency(J, Js, T, A, DX, DY):
     '''Convert the J matrix from parse_qca to include only full adjacency
     interactions'''
     
-    return J*(np.power(DX,2)+np.power(DY, 2) < R_MAX**2)
+    xovers = identify_xovers(A)
+    N = A.shape[0]
+
+    F = np.ones([N, N])
+    
+    for i in range(N-1):
+        for j in range(i+1, N):
+            if (i, j) in xovers or A[i, j] in [1, -1, 3]:
+                continue
+            else:
+                F[i, j] = 0
+                F[j, i] = 0
+    
+    return J*F
 
 
-def convert_to_lim_adjacency(J, Js, T, DX, DY):
+def convert_to_lim_adjacency(J, Js, T, A, DX, DY):
     '''Convert the J matrix from parse_qca to include only limited adjacency
     interactions'''
 
     # start with full adjacency representation
-    Js = np.array(convert_to_full_adjacency(J, Js, T, DX, DY))
-    Js /= np.max(np.abs(Js))
-
+    Js = np.array(convert_to_full_adjacency(J, Js, T, A, DX, DY))
+                
     # get inverters and their included diagonal interactions
-    invs = identify_inverters(Js)
+    invs = identify_inverters(A)
     
-    # forget all non-strong interactions
-    Js = Js*(np.abs(Js) > STRONG_THRESH)
-    
-    # add the inverter interaction back in
-    for c1 in invs:
-        for c2 in invs[c1]:
-            Js[c1][c2] = 1
-            Js[c2][c1] = 1
+    # clear all diagonal interactions for non-inverters
+    N = A.shape[0]
+    for i in range(N-1):
+        for j in range(i+1, N):
+            if A[i, j] != -1:
+                continue
+            elif (i in invs and j in invs[i]) or (j in invs and i in invs[j]):
+                continue
+            else:
+                Js[i, j] = Js[j, i] = 0.
     
     return J*(Js != 0)

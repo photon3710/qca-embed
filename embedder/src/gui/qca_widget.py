@@ -257,12 +257,18 @@ class QCAWidget(QtGui.QScrollArea):
         self.J = J
         
         # set up adjacency conversion variables
-        Js, T, DX, DY = prepare_convert_adj(cells, spacing, J)
+        Js, T, A, DX, DY = prepare_convert_adj(cells, spacing, J)
         self.convert_vars = {'Js': Js,
                              'T': T,
+                             'A': A,
                              'DX': DX,
                              'DY': DY}
         
+#        print np.round(Js, 3)
+#        print T
+#        print np.round(DX, 1)
+#        print np.round(DY, 1)
+
         # set adjacency type
         self.setAdjacency(full_adj, update=False)  # sets full_adj and J0
 
