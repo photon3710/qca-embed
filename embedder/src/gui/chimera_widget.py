@@ -570,6 +570,8 @@ class ChimeraWidget(QtGui.QScrollArea):
         elif e.key() == QtCore.Qt.Key_Down:
             self.verticalScrollBar().setValue(
                 self.verticalScrollBar().value() + scroll_delta)
+        
+        self.parent.keyPressEvent(e)
 
     def keyReleaseEvent(self, e):
         '''Reset key flags'''

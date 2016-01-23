@@ -392,8 +392,7 @@ class QCAWidget(QtGui.QScrollArea):
             self.canvas.rescale(zoom=True)
         elif e.key() == QtCore.Qt.Key_Control:
             self.zoom_flag = True
-        else:
-            e.ignore()
+        self.parent.keyPressEvent(e)
 
     def keyReleaseEvent(self, e):
         ''' '''

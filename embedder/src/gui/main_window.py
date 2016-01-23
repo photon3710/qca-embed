@@ -866,3 +866,9 @@ class MainWindow(QtGui.QMainWindow):
             e.accept()
         else:
             e.ignore()
+    
+    def keyPressEvent(self, e):
+        ''' '''
+        if e.key() == QtCore.Qt.Key_E:
+            print 'test'
+            self.embed_circuit()

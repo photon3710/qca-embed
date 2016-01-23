@@ -196,7 +196,7 @@ def identify_xovers(A):
     xovers = []
     for cand in cands:
         for k in range(N):
-            if A[cand[0], k] == 1 and A[cand[1], k] == 1:
+            if abs(A[cand[0], k]) == 1 and abs(A[cand[1], k]) == 1:
                 break
         else:
             xovers.append(cand)
