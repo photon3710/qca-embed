@@ -148,8 +148,8 @@ class Canvas(QtGui.QWidget):
                 else:
                     x = node.z*tile.width()
                     y = 0.5*tile.height()
-                x -= NODE_RAD*tile.width() - tile.x()
-                y -= NODE_RAD*tile.height() - tile.y()
+                x += tile.x() - NODE_RAD*tile.width()
+                y += tile.y() - NODE_RAD*tile.height()
                 node.x = x
                 node.y = y
 

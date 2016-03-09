@@ -9,6 +9,7 @@
 #---------------------------------------------------------
 
 import numpy as np
+from itertools import product
 
 # constants
 L = 4   # number of qubits per half tile
@@ -64,6 +65,29 @@ def load_chimera_file(filename):
     M = int(np.sqrt(num_qbits/(2*L)))
     N = M
     
+    fp.close()
+
     return M, N, adj
     
+
+def generate_chimera_adj(M, N, L=4):
+    '''Generate a full chimera adjacency dict of size MxN'''
+    
+    adj = {}
+    
+    # intra-tile connections
+    for m, n, h, l in product(range(M), range(N), range(2), range(L)):
+        adj[(m, n, h, l)] = [(m,n,1-h,x) for x in range(L)]
+    
+    # horizontal inter-tile connections
+    for m, n, l in product(range(M), range(N-1), range(L)):
+        adj[(m, n, 1, l)].append((m, n+1, 1, l))
+        adj[(m, n+1, 1, l)].append((m, n, 1, l))
+        
+    # vertical inter-tile connections
+    for m, n, l in product(range(M-1), range(N), range(L)):
+        adj[(m, n, 0, l)].append((m+1, n, 0, l))
+        adj[(m+1, n, 0, l)].append((m, n, 0, l))
+    
+    return adj
     

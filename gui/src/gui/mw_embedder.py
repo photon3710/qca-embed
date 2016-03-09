@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # -----------------------------------
-# Name: maiMain Window widget for embedder application
+# Name: Main Window widget for embedder application
 # Author: Jake Retallick
 # Created: 2015.11.25
 # Modified: 2015.11.25

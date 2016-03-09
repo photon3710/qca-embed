@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 
 # -----------------------------------
-# Name: application.py
+# Name: embedder.py
 # Desc: Main loop for QCA embedder application
 # Author: Jake Retallick
 # Created: 2015.11.25
-# Modified: 2015.11.25
+# Modified: 2016.03.02
 # Licence: Copyright 2015
 # -----------------------------------
 
 from PyQt4 import QtGui
-from gui.main_window import MainWindow
+from gui.mw_embedder import MainWindow
 import sys
 
 
