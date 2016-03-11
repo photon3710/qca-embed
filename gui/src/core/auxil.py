@@ -9,6 +9,10 @@
 #---------------------------------------------------------
 
 import numpy as np
+from copy import deepcopy as dc
+from pprint import pprint
+from heapq import heappop, heappush
+from collections import defaultdict, Counter
 
 # physical parameters
 eps0 = 8.85412e-12  # permittivity of free space
@@ -246,3 +250,135 @@ def convert_to_lim_adjacency(J, Js, T, A, DX, DY):
                 Js[i, j] = Js[j, i] = 0.
     
     return J*(Js != 0)
+    
+def qca_to_coef(cells, spacing, J, adj=None):
+    '''construct h and J matrix from parse_qca parameters. J matrix includes
+    all cell interactions, including driver and fixed'''
+    
+    # convert J matrix for appropriate adjacency
+    
+    if adj is not None:
+        Js, T, A, DX, DY = prepare_convert_adj(cells, spacing, J)    
+        if adj=='full':
+            J_ = convert_to_full_adjacency(J, Js, T, A, DX, DY)
+        elif adj=='lim':
+            J_ = convert_to_lim_adjacency(J, Js, T, A, DX, DY)
+        else:
+            J_ = dc(J)    
+    else:
+        J_ = dc(J)
+        
+    # separate indices of driver/fixed cells from normal/output cells 
+    dinds, inds = [], []
+    CFs = [CELL_FUNCTIONS['QCAD_CELL_NORMAL'], CELL_FUNCTIONS['QCAD_CELL_OUTPUT']]
+    for i in range(len(cells)):
+        if cells[i]['cf'] in CFs:
+            inds.append(i)
+        else:
+            dinds.append(i)
+    
+    # isolate active J matrix
+    Js = J_[inds, :][:, inds]
+    
+    # interaction matrix between driver/fixed cells and normal/output cells
+    Jx = J_[inds, :][:, dinds]
+    
+    # compute h parameters
+    try:
+        pols = np.array([cells[i]['pol'] for i in dinds])
+    except:
+        print('One of the driver/fixed cells has no specified polarization')
+        pols = np.zeros([len(dinds),], dtype=float)
+    
+    h = np.dot(Jx, pols).reshape([-1,])
+
+    return h, Js
+
+def bfs_order(x, A):
+    '''Determine modified bfs order for degrees x and adjacency matrix A'''
+    N = len(x)
+    adj = [np.nonzero(A[i])[0] for i in range(N)]
+    dx = 1./(N*N)
+    C = defaultdict(int)
+    pq = [min([(y, i) for i, y in enumerate(x)]),]
+    visited = [False]*N
+    order = []
+    while len(order)<N:
+        y, n = heappop(pq)
+        if visited[n]:
+            continue
+        order.append(n)
+        visited[n] = True
+        for n2 in [a for a in adj[n] if not visited[a]]:
+            x[n2] -= C[y]*dx
+            heappush(pq, (x[n2], n2))
+        C[y] += 1
+    return order
+    
+
+def hash_mat(M):
+    '''Return a hash value for a numpy array'''
+    M.flags.writeable = False
+    val = hash(M.data)
+    M.flags.writeable = True
+    return val
+
+def to_hash(h, J):
+    '''Compute a hash value for the generalised h and J'''
+    
+    # caste to int to eliminate resolution problems
+    RES = 1e3
+    h_ = (RES*h).astype(int)
+    J_ = (RES*J).adtype(int)
+    
+    return hash((hash_mat(h_), hash_mat(J_)))
+    
+def hash_problem(h, J, res=3):
+    '''Generate a hash for a given (h,J) pair'''
+    
+    # regularize formating
+    h = np.array(h).reshape([-1,])
+    J = np.array(J)
+    
+    # assert sizes
+    N = h.size
+    assert J.shape == (N, N), 'J and h are of different sizes'
+    
+    # normalise
+    K = np.max(np.abs(J))
+    h /= K
+    J /= K
+    
+    # reduce resolution to avoid numerical dependence of alpha-centrality
+    h = np.round(h, res)
+    J = np.round(J, res)
+
+    # compute alpha centrality coefficients for positive parity
+    evals = np.linalg.eigvalsh(J)
+    lmax = max(np.abs(evals))
+    alpha = .99/lmax
+    
+    cent = np.linalg.solve(np.eye(N)-alpha*J, h)
+    
+    # enumerate centrality coefficients up to given percent resolution
+    val, enum = min(cent), 0
+    for c, i in sorted([(c,i) for i,c in enumerate(cent)]):
+        f = (c-val)/abs(val)
+        if f > 1e-10:
+            val, enum = c, enum+1
+        cent[i] = enum
+
+#    pprint(dict(Counter(cent)))
+
+    # candidate parities
+    s = np.sign(np.sum(h))
+    hps = [+1, -1] if s == 0 else [s]
+    
+    for hp in hps:
+        inds = bfs_order(cent*hp, J != 0)
+        h_ = ((10**res)*h[inds]*hp).astype(int)
+        J_ = ((10**res)*J[inds,:][:, inds]).astype(int)
+        hash_val = hash((hash_mat(h_), hash_mat(J_)))
+    
+    return hash_val, K, hp, inds
+    
