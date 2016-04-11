@@ -2,7 +2,8 @@ qca_solver.py gives a basic overview of the steps needed to find the
 spectrum (eigenstates and eigenvalues) of a QCA circuit directly from
 its QCADesigner file. The current implementation uses the sparse solver
 implemented in solvers.sparse but does not include the rp-solver. It 
-will only work for circuits of <20 or so cells.
+will only work for circuits of <20 or so cells. Note that for a matrix
+of size K you can find at most K-1 eigenstates using a sparse solver.
 
 The basic flow is as follows: 
 
