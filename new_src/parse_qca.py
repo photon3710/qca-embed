@@ -178,12 +178,12 @@ def zone_cells(cells, spacing):
         for j in xrange(i+1, N):
             Ek = getEk(cells[i], cells[j], DR=DR)
             if Ek:
-                J[i, j] = Ek
-                J[j, i] = Ek
-
+                J[i, j] = -Ek
+                J[j, i] = -Ek
+                
     # remove very weak interactions
     J = J * (np.abs(J) >= np.max(np.abs(J)*EK_THRESH))
-
+    
     # make full cell connectivity Graph
     G = nx.Graph(J)
 
@@ -304,7 +304,7 @@ def reorder_cells(cells, zones, J, flipy=False):
 
 ## MAIN FUNCTION
 
-def parse_qca_file(fn, one_zone=False, show=False):
+def parse_qca_file(fn, one_zone=False):
     '''Parse a QCADesigner file to extract cell properties. Returns an ordered
     list of cells, the QCADesigner grid spacing in nm, a list structure of the
     indices of each clock zone (propogating from inputs), and a coupling matrix
@@ -324,11 +324,11 @@ def parse_qca_file(fn, one_zone=False, show=False):
             cell['clk'] = 0
 
     # group into clock zones
-    zones, J, feedback = zone_cells(cells, spacing, show=show)
+    zones, J, feedback = zone_cells(cells, spacing)
 
     # reorder cells by zone and position
     cells, zones, J = reorder_cells(cells, zones, J)
-
+    
     # if only one zone is requested, don't need the zone order structure
     if one_zone:
         zones = zones[0]

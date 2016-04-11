@@ -100,6 +100,49 @@ def getEk(c1, c2, DR=2):
     Ek = -1e9*q0*np.sum((Q/R))/(8*np.pi*eps0*epsr)
 
     return Ek
+    
+    
+def identify_inverters(A):
+    '''Identify inverter cells'''
+    
+    # an inverter is a cell with at most one strong interaction and two weak
+    # interactions, each having one strong interaction
+    invs = {}    
+    N = A.shape[0]
+
+    # count number of strong interactions for each cell
+    num_strong = [np.count_nonzero(A[i,:] == 1) for i in xrange(N)]
+
+    for i in xrange(N):
+        if num_strong[i] <= 1:   # check if an inverter
+            adj = [j for j in range(N) if A[i, j] == -1 and num_strong[j] == 1]
+            if len(adj) == 2:
+                for k in range(N):
+                    if A[adj[0], k] == 1 and A[adj[1], k] == 1:
+                        break
+                else:
+                    invs[i] = adj
+    
+    return invs
+
+
+def identify_xovers(A):
+    '''Identify all rotated crossover cells in a circuit'''
+    
+    # xover condition: two cells have A=2 and no path of A:1,1
+    N = A.shape[0]
+    cands = [(i,j) for i in range(N-1) for j in range(i+1, N) if A[i,j] == 2]
+    
+    xovers = []
+    for cand in cands:
+        for k in range(N):
+            if abs(A[cand[0], k]) == 1 and abs(A[cand[1], k]) == 1:
+                break
+        else:
+            xovers.append(cand)
+    
+    return xovers
+
 
 def prepare_convert_adj(cells, spacing, J):
     '''Prepares useful variables for converting from the parse_qca J matrix to
@@ -167,48 +210,6 @@ def prepare_convert_adj(cells, spacing, J):
     return Js, T, A, DX, DY
 
 
-def identify_inverters(A):
-    '''Identify inverter cells'''
-    
-    # an inverter is a cell with at most one strong interaction and two weak
-    # interactions, each having one strong interaction
-    invs = {}    
-    N = A.shape[0]
-
-    # count number of strong interactions for each cell
-    num_strong = [np.count_nonzero(A[i,:] == 1) for i in xrange(N)]
-
-    for i in xrange(N):
-        if num_strong[i] <= 1:   # check if an inverter
-            adj = [j for j in range(N) if A[i, j] == -1 and num_strong[j] == 1]
-            if len(adj) == 2:
-                for k in range(N):
-                    if A[adj[0], k] == 1 and A[adj[1], k] == 1:
-                        break
-                else:
-                    invs[i] = adj
-    
-    return invs
-
-
-def identify_xovers(A):
-    '''Identify all rotated crossover cells in a circuit'''
-    
-    # xover condition: two cells have A=2 and no path of A:1,1
-    N = A.shape[0]
-    cands = [(i,j) for i in range(N-1) for j in range(i+1, N) if A[i,j] == 2]
-    
-    xovers = []
-    for cand in cands:
-        for k in range(N):
-            if abs(A[cand[0], k]) == 1 and abs(A[cand[1], k]) == 1:
-                break
-        else:
-            xovers.append(cand)
-    
-    return xovers
-
-
 def convert_to_full_adjacency(J, Js, T, A, DX, DY):
     '''Convert the J matrix from parse_qca to include only full adjacency
     interactions'''
@@ -252,6 +253,25 @@ def convert_to_lim_adjacency(J, Js, T, A, DX, DY):
     
     return J*(Js != 0)
     
+def convert_adjacency(cells, spacing, J, adj=None):
+    '''Convert the J matrix of a QCACircuit to the specified adjacency type.'''
+    
+    if adj is None:
+        return dc(J)
+    
+    params = prepare_convert_adj(cells, spacing, J)
+    
+    if adj=='full':
+        J_ = convert_to_full_adjacency(J, *params)
+    elif adj=='lim':
+        J_ = convert_to_lim_adjacency(J, *params)
+    else:
+        J_ = dc(J)
+    
+    return J
+    
+    
+    
 def qca_to_coef(cells, spacing, J, adj=None):
     '''construct h and J matrix from parse_qca parameters. J matrix includes
     all cell interactions, including driver and fixed'''
@@ -259,6 +279,7 @@ def qca_to_coef(cells, spacing, J, adj=None):
     # convert J matrix for appropriate adjacency
     
     if adj is not None:
+    
         Js, T, A, DX, DY = prepare_convert_adj(cells, spacing, J)    
         if adj=='full':
             J_ = convert_to_full_adjacency(J, Js, T, A, DX, DY)
@@ -271,6 +292,7 @@ def qca_to_coef(cells, spacing, J, adj=None):
         
     # separate indices of driver/fixed cells from normal/output cells 
     dinds, inds = [], []
+    
     CFs = [CELL_FUNCTIONS['QCAD_CELL_NORMAL'], CELL_FUNCTIONS['QCAD_CELL_OUTPUT']]
     for i in range(len(cells)):
         if cells[i]['cf'] in CFs:

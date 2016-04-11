@@ -71,3 +71,7 @@ def solve(h, J, gamma=None, minimal=False, verbose=False, more=False,
     
     Hs = generate_H(h, J, gamma=gamma)
     
+    e_vals, e_vecs = solve_sparse(Hs, minimal=minimal, verbose=verbose, more=more,
+                                  exact=exact, k=k)
+    return e_vals, e_vecs
+    

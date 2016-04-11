@@ -1,14 +1,13 @@
 import numpy as np
-import scipy.sparse as sp
 
 from parse_qca import parse_qca_file
-from auxil import CELL_FUNCTIONS, gen_pols
-from Solvers.core import state_to_pol
-from Solvers.sparse import solve
+from auxil import CELL_FUNCTIONS, gen_pols, convert_adjacency
+from solvers.core import state_to_pol
+from solvers.sparse import solve
 
 import sys
 
-def exact_solve(fname, gammas = [0.], k=-1):
+def exact_solve(fname, gammas = [0.], k=-1, adj=None):
     '''Exactly solve the first k eigenstates for a QCA circuit for all possible
     input configurations and all specified transverse fields. Assumes all cells
     have the same transverse field.'''
@@ -20,7 +19,13 @@ def exact_solve(fname, gammas = [0.], k=-1):
         print('Failed to process QCA file: {0}'.format(fname))
         return None
         
-    # isolate each type of cell
+    # convert J to specified adjacency
+    J = convert_adjacency(cells, spacing, J, adj=adj)
+    
+    # normalize J
+    J /= np.max(np.abs(J))
+        
+    # group each type of cell: normal = NORMAL or OUTPUT
     drivers, fixeds, normals, outputs = [], [], [], []
     for i,c in enumerate(cells):
         if c['cf'] == CELL_FUNCTIONS['QCAD_CELL_INPUT']:
@@ -32,7 +37,7 @@ def exact_solve(fname, gammas = [0.], k=-1):
                 outputs.append(i)
             normals.append(i)
     
-    # map from output labels to indices in list of normals
+    # map from output cell labels to indices in normals list
     output_map = {i: n for n, i in enumerate(normals) if i in outputs}
     
     J_d = J[drivers, :][:, normals]     # matrix for mapping drivers to h
@@ -47,7 +52,13 @@ def exact_solve(fname, gammas = [0.], k=-1):
     for pol in gen_pols(len(drivers)):
         h = h0 + np.dot(pol, J_d)
         for gamma in gammas:
-            e_vals, e_vecs = solve(h, J_n, gamma=gamma)
+            e_vals, e_vecs = solve(h, J_n, gamma=gamma, minimal=True, exact=False)
+            # e_vecs[:,i] is the i^th eigenstate
+            pols = state_to_pol(e_vecs)
+            # pols[:,i] gives the polarizations of all cells for the i^th e-vec
+#            print(e_vals[0])
+#            for o, i in output_map.iteritems():
+#                print('{0}: {1}'.format(o, pols[:,0]))
     
 if __name__ == '__main__':
     try:
@@ -56,4 +67,4 @@ if __name__ == '__main__':
         print('No QCA file given...')
         sys.exit()
         
-    exact_solve(fname, )
+    exact_solve(fname, gammas = [0.,])
