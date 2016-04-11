@@ -268,7 +268,7 @@ def convert_adjacency(cells, spacing, J, adj=None):
     else:
         J_ = dc(J)
     
-    return J
+    return J_
     
     
     

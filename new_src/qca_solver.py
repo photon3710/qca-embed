@@ -68,4 +68,4 @@ if __name__ == '__main__':
         print('No QCA file given...')
         sys.exit()
         
-    exact_solve(fname, gammas = [0.,])
+    exact_solve(fname, gammas = [0.,], adj='full')
