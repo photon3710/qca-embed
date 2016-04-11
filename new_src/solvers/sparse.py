@@ -26,6 +26,10 @@ def solve_sparse(Hs, minimal=False, verbose=False, more=False, exact=False,
     Hamiltonian'''
     
     N = int(round(np.log2(Hs.shape[0])))    # number of effective cells
+    if N > 22:
+        print('Problem Hamiltonian larger than advised...')
+        return [], []
+
     factors = {True: 10, False: 3}
     
     if verbose:
@@ -67,8 +71,12 @@ def solve_sparse(Hs, minimal=False, verbose=False, more=False, exact=False,
     return e_vals, e_vecs
     
 def solve(h, J, gamma=None, minimal=False, verbose=False, more=False, 
-          exact=False, k = None, full_output=False):
+          exact=False, k = None):
     
+    if len(h) > 22:
+        print('Will not attempt circuits larger then 22 cells')
+        return [], []
+
     Hs = generate_H(h, J, gamma=gamma)
     
     e_vals, e_vecs = solve_sparse(Hs, minimal=minimal, verbose=verbose, more=more,

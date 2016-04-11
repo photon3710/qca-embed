@@ -56,7 +56,8 @@ def exact_solve(fname, gammas = [0.], k=-1, adj=None):
             # e_vecs[:,i] is the i^th eigenstate
             pols = state_to_pol(e_vecs)
             # pols[:,i] gives the polarizations of all cells for the i^th e-vec
-#            print(e_vals[0])
+            print('GS: {0:.4f}'.format(e_vals[0]))
+            print('pols: {0}'.format(pols[:,0]))
 #            for o, i in output_map.iteritems():
 #                print('{0}: {1}'.format(o, pols[:,0]))
     

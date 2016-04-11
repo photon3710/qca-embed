@@ -1,0 +1,121 @@
+qca_solver.py gives a basic overview of the steps needed to find the
+spectrum (eigenstates and eigenvalues) of a QCA circuit directly from
+its QCADesigner file. The current implementation uses the sparse solver
+implemented in solvers.sparse but does not include the rp-solver. It 
+will only work for circuits of <20 or so cells.
+
+The basic flow is as follows: 
+
+1) Parse the given QCADesigner file to obtain cell properties and the J
+interaction array
+
+2) Convert the J array to desired adjacency and normalize (optional).
+
+3) Create lists of which indices correspons to which types of QCA cell.
+Only NORMAL and OUTPUT cells are to be solved. DRIVER and FIXED cells
+contribute only to the h parameters.
+
+4) Split J array up into 3 components:
+	J_d: coupling between drivers and the solved cells.
+	J_f: coupling between fixed cells and solved cells.
+	J_n: coupling between set of all solved cells (effective J).
+
+5) Create an initial h0 by multiplying fixed cell polarizations by the
+coupling matrix J_f. This contribution to h will be the same for all
+driver polarizations.
+
+6) For each set of driver polarizations, loop through all gamma values,
+add the driver contribution to h by mutiplying the driver polarizations
+by J_d, and solve the Ising problem for the current h, J, gamma 
+parameters.
+
+7) Read out or store the solved parameters. Currently the ground state
+energy and polarizations are printed.
+
+**output_map:
+	The values of output_map are the indices of the output cells in
+	the list of solved cells with the output cell labels as keys.
+	The labels are just the elements of the 'drivers' list. An 
+	example for reading out output cell polarizations is commented.
+
+MAIN FUNCTIONS
+----------------------------------------------------------------------
+parse_qca.parse_qca_file:
+	
+Parses a QCADesigner file into a set of useful parameters
+
+inputs:
+ir	fn:		filename of QCADesigner file
+	one_zone:	flag to ignore clocking zones
+
+outputs:
+	cells: 		list of cell description dicts
+	spacing:	characteristic cell-cell separation distance
+	zones:		list of cell indices in each clocking zone
+	J:		array of interaction parameters (J<0 for ferro)
+	feedback:	feedback parameters (not important here)
+
+
+---------------------------------------------------------------------
+auxil.convert_adjacency
+
+Handler for adjacency conversion methods in auxil.py. Takes the outputs
+from parse_qca_file to return a version of the J array with specified 
+adjacency. If adj is None, a copy of the J array is returned as is.
+
+inputs:
+	cells, spacing, J:	as from parse_qca_file
+	adj:			adjacency type in ['full', 'lim', None]
+
+outputs:
+	J:	modified version of the interaction array.
+
+
+---------------------------------------------------------------------
+auxil.gen_pols
+
+Simple method that returns a list of all possible polarizations for a 
+given number of driver cells.
+
+input:
+	n:	Number of driver cells
+
+output: a list of lists of cell polarizations
+
+
+---------------------------------------------------------------------
+solvers.sparse.solve
+
+Runs an exact solver on the given Ising spin-glass problem and returns 
+the eigenvalues and eigenstates. For N cells, will by default return 3N
+eigenstates. If more==True, will return 10N eigenstates.
+
+inputs:
+	h:	iterable of h parameters
+	J:	array of J parameters
+	gamma:	tunneling energies. If iterable each cell is given its
+		own gamma value, if scalar each cell has the same gamma.
+	minimal:flag to solve only the first two eigenstates.
+	verbose:flag to echo operations
+	more:	flag to return more eigenstates.
+	exact:	run an exact dense matrix solver.
+	k:	specify exact number of eigenstates to return.
+
+outputs:
+	e_vals:	a list of the lowest k eigenvalues of the Ising problem
+	e_vecs:	an array of the corresponding eigenstates. e_vecs[:,i]
+		gives the i^th eigenstate.
+
+
+----------------------------------------------------------------------
+solvers.core.state_to_pol
+
+Converts a 2^N state vector or a (2^N)xM array with state columns to an
+NxM array of cell polarizations.
+
+inputs:
+	state:	either a 2^N element state or a (2^N)xM array of states.
+	r:	number of decimals in the polarizations.
+
+outputs:
+	pols:	rounded NxM array of polarization values.
