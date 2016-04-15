@@ -144,14 +144,22 @@ def hash_problem(h, J, gam=None, res=3):
     
     # regularize formating
     h = np.array(h).reshape([-1,])
-    g = np.array(gam).reshape([-1,]) if gam is not None else 0.*h
     J = np.array(J)
     
     # assert sizes
     N = h.size
-    assert g.size == h.size, 'h and gamma are of different size'
     assert J.shape == (N, N), 'J and h are of different sizes'
     
+    if isinstance(gam, Iterable):
+        g = np.array(gam).reshape([-1,])
+        assert g.size == h.size, 'h and gamma are of different size'
+    elif isinstance(gam, Number):
+        g = float(gam)
+    elif gam is None:
+        g = 0.
+    else:
+        raise AssertionError, 'Invalid format of gamma'
+
     # normalise
     K = np.max(np.abs(J))
     h /= K
@@ -169,9 +177,11 @@ def hash_problem(h, J, gam=None, res=3):
     alpha = .99/lmax
     
     cent = np.linalg.solve(np.eye(N)-alpha*J, h)
+    cent += 1- np.min(cent)
     
     # enumerate centrality coefficients up to given percent resolution
     val, enum = min(cent), 0
+
     for c, i in sorted([(c,i) for i,c in enumerate(cent)]):
         f = (c-val)/abs(val)
         if f > 1e-10:
@@ -188,8 +198,13 @@ def hash_problem(h, J, gam=None, res=3):
     for hp in hps:
         inds.append(bfs_order(cent*hp, J != 0))
         h_ = ((10**res)*h[inds[-1]]*hp).astype(int)
-        g_ = ((10**res)*g[inds[-1]]*hp).astype(int)
         J_ = ((10**res)*J[inds[-1],:][:, inds[-1]]).astype(int)
-        hash_vals.append(hash((hash_mat(h_), hash_mat(g_), hash_mat(J_))))
+        if isinstance(g, Number):
+            g_ = int((10**res)*g)
+            hash_vals.append(hash((hash_mat(h_), g_, hash_mat(J_))))
+        else:
+            g_ = ((10**res)*g[inds[-1]]).astype(int)
+            hash_vals.append(hash((hash_mat(h_), hash_mat(g_), hash_mat(J_))))
     
-    return hash_vals, K, hps, inds
+    hval, hp, ind = min(zip(hash_vals, hps, inds))
+    return hval, K, hp, ind

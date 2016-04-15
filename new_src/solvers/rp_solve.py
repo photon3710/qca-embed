@@ -5,12 +5,15 @@
 # Purpose: Recursive Partitioning solver
 # Author:	Jacob Retallick
 # Created: 2016.04.11
-# Last Modified: 2016.04.11
+# Last Modified: 2016.04.14
 #---------------------------------------------------------
 
 import numpy as np
 import scipy.sparse as sp
 import networkx as nx
+import json
+import os
+import re
 
 from collections import Iterable
 from numbers import Number
@@ -27,15 +30,82 @@ from pprint import pprint
 # solver parameters
 N_PARTS = 2     # number of partitions at each recursive step
 
-N_THRESH = 4            # largest allowed number of nodes for eact solver
-MEM_THRESH = 1e4        # maximum mode count product
-STATE_THRESH = 0.02     # required amplitude for state contribution
+N_THRESH = 6            # largest allowed number of nodes for eact solver
+MEM_THRESH = 1e5        # maximum mode count product
+STATE_THRESH = 0.03     # required amplitude for state contribution
 E_RES = 5e-2            # resolution in energy binning
     
 
+### SOLUTION CACHE FUNCTIONS
+
 def generate_hash_table(direc=None):
-    ''' '''
-    pass
+    '''If direc exists, generate the hash table from the directory
+    file structure. Otherwise, create the given directory.'''
+    
+    hash_table = {}
+    
+    if os.path.exists(direc):
+        # load hash table from file list
+        regex = re.compile('^[mp][0-9]+.json')
+        fnames = os.listdir(direc)
+        keys = [fname for fname in fnames if regex.match(fname)]
+        
+        for key in keys:
+            hval = (-1 if key[0]=='m' else 1)*int(key[1:].partition('.')[0])
+            hash_table[hval]=key
+    else:
+        os.makedirs(direc)
+    
+    return hash_table
+
+def from_cache(cache_dir, hval, K, hp, inds):
+    '''Load and convert Es and modes from cache'''
+    
+    inv_map = {k: i for i, k in enumerate(inds)}
+    ninds = [inv_map[k] for k in range(len(inds))]
+    
+    ext = '{0}{1}.json'.format('m' if hval<0 else 'p', abs(hval))
+    fname = os.path.join(cache_dir, ext)
+    
+    fp = open(fname, 'r')
+    data = json.load(fp)
+    fp.close()
+    
+    Es = data['Es']
+    modes = data['modes']
+
+    Es_ = [E*K for E in Es]
+    modes_ = []
+    for mds in modes:
+        m = []
+        for md in mds:
+            m.append(tuple(hp*np.array(md)[ninds]))
+        modes_.append(m)
+    
+    return Es_, modes_
+
+def to_cache(Es, modes, cache_dir, hval, K, hp, inds):
+    '''Convert Es and modes to standard form and save to cache'''
+
+    ext = '{0}{1}.json'.format('m' if hval<0 else 'p', abs(hval))
+    fname = os.path.join(cache_dir, ext)
+    
+    Es_ = [E/K for E in Es]
+    modes_ = []
+    for mds in modes:
+        m = []
+        for md in mds:
+            m.append(tuple(hp*np.array(md)[inds]))
+        modes_.append(m)
+    
+    fp = open(fname, 'w')
+    json.dump({'Es': Es_, 'modes': modes_}, fp)
+    fp.close()
+    
+    return ext
+
+
+### RECURSIVE PARTITIONING FUNCTIONS
 
 # checked
 def compute_rp_tree(J, nparts=2, inds=None):
@@ -107,6 +177,19 @@ def partition(h, J, tree):
     
     return h_p, J_p, C_p
 
+
+### PARTITION MODE FORMULATION
+
+def rp_state_to_pol(amps, prod_states=None):
+    '''convert the amplitudes and product states of a state to a pol list'''
+
+    if prod_states is None:
+        return state_to_pol(amps)
+
+    modes = np.array(prod_states)
+    amps = amps.reshape([-1, 1])
+
+    return -np.sum((amps*amps)*modes, 0)
 
 def get_prod_states(state, comp=False):
     '''Get spin representation of the product states which contribute to the
@@ -360,8 +443,6 @@ def correct_prod_state(pstates, modes, tree):
     '''Correct product state to account for mode space representation'''
 
     inds = [child['inds'] for child in tree['children']]
-    
-    # prep work
 
     Nps = len(pstates)  # number of product state lists
     N = len(modes)      # number of partitions
@@ -434,7 +515,7 @@ def solve_comp(h_p, J_p, C_p, gam, modes, tree, e_res, **kwargs):
         print('\nRunning components solver...')
         
     Hs = build_comp_H(h_p, J_p, C_p, gam, modes)
-    print(time()-t)
+
     t1 = time()
     # run sparse matric solver
     if verbose:
@@ -459,8 +540,8 @@ def solve_comp(h_p, J_p, C_p, gam, modes, tree, e_res, **kwargs):
     
     
 def recursive_solver(h, J, gam, tree, **kwargs):
-    ''' '''
-    
+    '''Recursive method for identifying energy bins and significant modes'''
+
     # pull parameters from kwargs
     cache_dir = kwargs['cache_dir']
     verbose = kwargs['verbose']
@@ -470,6 +551,23 @@ def recursive_solver(h, J, gam, tree, **kwargs):
     
     if verbose:
         print('Detected problem size: {0}'.format(h.size))
+        
+    # try to read from cache
+    if cache_dir is not None:
+        # get or create hash table
+        if 'hash_table' not in kwargs:
+            kwargs['hash_table'] = generate_hash_table(direc=cache_dir)
+        hval, K, hp, inds = hash_problem(h, J, gam=gam)
+        hash_pars = {'hval':hval, 'K':K, 'hp':hp, 'inds':inds}
+        # try to look up solution
+        if hval in kwargs['hash_table']:
+            try:
+                Es, modes = from_cache(cache_dir, **hash_pars)
+                return Es, modes
+            except:
+                print('Something went wrong reading from cache')
+    
+    # solution not cached, compute
     if not tree['children']:
         if verbose:
             print('Running exact solver...')
@@ -484,7 +582,7 @@ def recursive_solver(h, J, gam, tree, **kwargs):
         ES, MS = [], []
         for h_, J_, tree_ in zip(h_p, J_p, tree['children']):
             Es_, modes_ = recursive_solver(h_, J_, gam, tree_, **kwargs)
-            ES.append(Es_)
+            ES.append(np.array(Es_))
             MS.append(modes_)
         
         # select modes to include
@@ -492,19 +590,15 @@ def recursive_solver(h, J, gam, tree, **kwargs):
         
         # solve component system
         Es, modes = solve_comp(h_p, J_p, C_p, gam, modes, tree, e_res, **kwargs)
-        
+    
+    # save to cache
+    if 'hash_table' in kwargs:
+        try:
+            kwargs['hash_table'][hash_pars['hval']] = \
+                to_cache(Es, modes, cache_dir, **hash_pars)
+        except:
+            print('Failed to cache solution...')
     return Es, modes
-
-def rp_state_to_pol(amps, prod_states=None):
-    '''convert the amplitudes and product states of a state to a pol list'''
-
-    if prod_states is None:
-        return state_to_pol(amps)
-
-    modes = np.array(prod_states)
-    amps = amps.reshape([-1, 1])
-
-    return -np.sum((amps*amps)*modes, 0)
 
 def out_handler(h, J, gam, prod_states):
     '''Make an estimation of low energy spectrum using the determined
@@ -556,8 +650,6 @@ def rp_solve(h, J, gam=None, **kwargs):
                 modes   : array of basis modes. (modes[:,i] is the i^th mode)
     '''
     
-    t = time()
-    
     if 'verbose' in kwargs:
         verbose = kwargs['verbose']
     else:
@@ -599,19 +691,14 @@ def rp_solve(h, J, gam=None, **kwargs):
         if verbose:
             print('\trunning graph clustering...')
         tree = compute_rp_tree(J != 0, nparts=N_PARTS)
-
-    print('Initialisation time: {0} s'.format(time()-t))    
+   
     # initialise hash table
     
     # run recursive solver
-    t = time()
     Es, modes = recursive_solver(h, J, gam, tree, verbose=verbose, cache_dir=cache_dir)
-    print('Recursion runtime: {0} s'.format(time()-t))
     
     # estimate eigenvalues and eigenstates
-    t = time()
     e_vals, e_vecs, Eps, modes, pols  = out_handler(h, J, gam, modes)
-    print('Handler time: {0} s'.format(time()-t))
 
     return e_vals, e_vecs, modes
 
