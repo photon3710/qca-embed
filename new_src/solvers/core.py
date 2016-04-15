@@ -11,10 +11,33 @@
 import numpy as np
 import scipy.sparse as sp
 from numbers import Number
-from collections import Iterable
+from collections import Iterable, defaultdict
+from heapq import heappop, heappush
+from time import time
 
 
+def ind_to_state(ind, N):
+    '''Converts a state index to a list of N spins.
+    
+    ex: ind_to_state(0, 5) = (-1, -1, -1, -1, -1)
+        ind_to_state(2, 4) = (-1, -1, 1, -1)
+    '''
+    
+    bnr = format(ind, '#0{0}b'.format(N+2))[2::]
+    return [2*int(x)-1 for x in bnr]
 
+def diag_solve(H, k=None):
+    '''Quick sort method for "diagonalizing" an array representing the 
+    diagonal of a Hamiltonian'''
+    
+    inds = np.argsort(H)
+    
+    if k is None:
+        k = H.size
+    
+    e_vals = H[inds]
+    return e_vals, inds
+        
 # Hamiltonian generation methods for basic Ising spin glass
 
 def pauli_z(n, N, pz=[1, -1]):
@@ -41,9 +64,11 @@ def generate_Hx(gamma, tril=True):
     return mat if tril else mat.T
     
 def generate_H(h, J, gamma=None):
-    '''Generate the sparse Hamiltonian for the given Ising parameters.
-    Formatting is assumed to match '''
+    '''Generate the sparse Hamiltonian for the given Ising parameters. If no
+    tunneling parameters set, returns the diagonal of H, otherwise returns a 
+    symmetric sparse Hamiltonian.'''
     
+    h = np.array(h).reshape([-1,])
     N = h.size
     N2 = 2**N
     
@@ -80,3 +105,91 @@ def state_to_pol(state, r=3):
 
     POL = np.dot(SZ, amp)
     return np.round(POL, r)
+    
+    
+### --------------------------------------------------------------------------
+### ISING HASHING
+
+def bfs_order(x, A):
+    '''Determine modified bfs order for degrees x and adjacency matrix A'''
+    N = len(x)
+    adj = [np.nonzero(A[i])[0] for i in range(N)]
+    dx = 1./(N*N)
+    C = defaultdict(int)
+    pq = [min([(y, i) for i, y in enumerate(x)]),]
+    visited = [False]*N
+    order = []
+    while len(order)<N:
+        y, n = heappop(pq)
+        if visited[n]:
+            continue
+        order.append(n)
+        visited[n] = True
+        for n2 in [a for a in adj[n] if not visited[a]]:
+            x[n2] -= C[y]*dx
+            heappush(pq, (x[n2], n2))
+        C[y] += 1
+    return order
+    
+def hash_mat(M):
+    '''Return a hash value for a numpy array'''
+    M.flags.writeable = False
+    val = hash(M.data)
+    M.flags.writeable = True
+    return val
+    
+def hash_problem(h, J, gam=None, res=3):
+    '''Generate a hash for a given (h,J) pair. Decimal resolution of h and J
+    should be specified by res argument.'''
+    
+    # regularize formating
+    h = np.array(h).reshape([-1,])
+    g = np.array(gam).reshape([-1,]) if gam is not None else 0.*h
+    J = np.array(J)
+    
+    # assert sizes
+    N = h.size
+    assert g.size == h.size, 'h and gamma are of different size'
+    assert J.shape == (N, N), 'J and h are of different sizes'
+    
+    # normalise
+    K = np.max(np.abs(J))
+    h /= K
+    g /= K
+    J /= K
+    
+    # reduce resolution to avoid numerical dependence of alpha-centrality
+    h = np.round(h, res)
+    g = np.round(g, res)
+    J = np.round(J, res)
+
+    # compute alpha centrality coefficients for positive parity
+    evals = np.linalg.eigvalsh(J)
+    lmax = max(np.abs(evals))
+    alpha = .99/lmax
+    
+    cent = np.linalg.solve(np.eye(N)-alpha*J, h)
+    
+    # enumerate centrality coefficients up to given percent resolution
+    val, enum = min(cent), 0
+    for c, i in sorted([(c,i) for i,c in enumerate(cent)]):
+        f = (c-val)/abs(val)
+        if f > 1e-10:
+            val, enum = c, enum+1
+        cent[i] = enum
+
+    # candidate parities
+    s = np.sign(np.sum(h))
+    hps = [+1, -1] if s == 0 else [s]
+    
+    hash_vals = []
+    inds = []
+
+    for hp in hps:
+        inds.append(bfs_order(cent*hp, J != 0))
+        h_ = ((10**res)*h[inds[-1]]*hp).astype(int)
+        g_ = ((10**res)*g[inds[-1]]*hp).astype(int)
+        J_ = ((10**res)*J[inds[-1],:][:, inds[-1]]).astype(int)
+        hash_vals.append(hash((hash_mat(h_), hash_mat(g_), hash_mat(J_))))
+    
+    return hash_vals, K, hps, inds

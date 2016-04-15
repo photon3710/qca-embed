@@ -13,6 +13,7 @@ import numbers
 
 from time import clock
 from scipy.sparse.linalg import eigsh
+import scipy.sparse as sp
 from scipy.linalg import eigh
 
 from core import generate_H
@@ -23,7 +24,8 @@ TOL_EIGSH = 1e-7
 def solve_sparse(Hs, minimal=False, verbose=False, more=False, exact=False,
                  k = None):
     '''Finds a subset of the eigenstates/eigenvalues for a sparse formatted 
-    Hamiltonian'''
+    Hamiltonian. Note: sparse solver will give inaccurate results if Hs is
+    triangular.'''
     
     N = int(round(np.log2(Hs.shape[0])))    # number of effective cells
     if N > 22:
@@ -78,6 +80,9 @@ def solve(h, J, gamma=None, minimal=False, verbose=False, more=False,
         return [], []
 
     Hs = generate_H(h, J, gamma=gamma)
+    
+    if gamma is None:
+        Hs = sp.diags([Hs], [0])
     
     e_vals, e_vecs = solve_sparse(Hs, minimal=minimal, verbose=verbose, more=more,
                                   exact=exact, k=k)
