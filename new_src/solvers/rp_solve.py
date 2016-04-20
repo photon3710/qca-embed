@@ -18,6 +18,7 @@ import re
 from collections import Iterable
 from numbers import Number
 from pymetis import part_graph
+from bcp import chlebikova
 from itertools import combinations
 from time import time
 
@@ -30,10 +31,11 @@ from pprint import pprint
 # solver parameters
 N_PARTS = 2     # number of partitions at each recursive step
 
-N_THRESH = 6            # largest allowed number of nodes for eact solver
-MEM_THRESH = 1e5        # maximum mode count product
-STATE_THRESH = 0.03     # required amplitude for state contribution
-E_RES = 5e-2            # resolution in energy binning
+N_THRESH = 8            # largest allowed number of nodes for eact solver
+MEM_THRESH = 2e4        # maximum mode count product
+STATE_THRESH = 0.01     # required amplitude for state contribution
+E_RES = 1e-3            # resolution in energy binning
+W_POW = 1               # power for weighting nodes in chlebikova bisection
     
 
 ### SOLUTION CACHE FUNCTIONS
@@ -107,6 +109,33 @@ def to_cache(Es, modes, cache_dir, hval, K, hp, inds):
 
 ### RECURSIVE PARTITIONING FUNCTIONS
 
+def run_pymetis(J, nparts):
+    ''' '''
+    
+    print('running {0}-way partitioning...'.format(nparts))
+    # run pymetis partitioning
+    adj_list = nx.to_dict_of_lists(nx.Graph(J))
+    adj_list = [adj_list[k] for k in range(len(adj_list))]
+    ncuts, labels = part_graph(nparts, adjacency=adj_list)
+    
+    # get indices of each partition
+    parts = [[] for _ in range(nparts)]
+    for i, p in enumerate(labels):
+        parts[p].append(i)
+    
+    return parts
+
+def run_chlebikova(J):
+    ''' '''
+    
+    print('Running chlebikova...')
+    G = nx.Graph(J!=0)
+    for k in G:
+        G.node[k]['w'] = 1./len(G[k])**W_POW
+    V1, V2 = chlebikova(G)
+    
+    return [sorted(x) for x in [V1, V2]]
+
 # checked
 def compute_rp_tree(J, nparts=2, inds=None):
     '''Build the recursive partition tree of the adjacency matrix J. At each
@@ -119,13 +148,10 @@ def compute_rp_tree(J, nparts=2, inds=None):
     if J.shape[0] <= N_THRESH:
         return tree
 
-    # run pymetis partitioning
-    ncuts, labels = part_graph(nparts, adjacency=nx.Graph(J).adjacency_list())
-    
-    # get indices of each partition
-    parts = [[] for _ in range(nparts)]
-    for i, p in enumerate(labels):
-        parts[p].append(i)
+    if nparts==2:
+        parts = run_chlebikova(J)
+    else:
+        parts = run_pymetis(J, nparts)
     
     # recursively build children tree
     for part in parts:
@@ -584,7 +610,7 @@ def recursive_solver(h, J, gam, tree, **kwargs):
             Es_, modes_ = recursive_solver(h_, J_, gam, tree_, **kwargs)
             ES.append(np.array(Es_))
             MS.append(modes_)
-        
+
         # select modes to include
         modes = select_modes(ES, MS)
         
@@ -619,7 +645,7 @@ def out_handler(h, J, gam, prod_states):
     ps_order, Eps = zip(*ps_order)
 
     # find the eigenstates in the reduced mode space
-    e_vals, e_vecs = solve_sparse(Hs, more=False)
+    e_vals, e_vecs = solve_sparse(Hs, more=True)
 
     E = e_vals
     states = e_vecs
@@ -691,9 +717,7 @@ def rp_solve(h, J, gam=None, **kwargs):
         if verbose:
             print('\trunning graph clustering...')
         tree = compute_rp_tree(J != 0, nparts=N_PARTS)
-   
-    # initialise hash table
-    
+
     # run recursive solver
     Es, modes = recursive_solver(h, J, gam, tree, verbose=verbose, cache_dir=cache_dir)
     

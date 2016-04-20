@@ -55,7 +55,7 @@ def solve_sparse(Hs, minimal=False, verbose=False, more=False, exact=False,
     # run eigsh
     
     try:
-        if exact:
+        if exact or N < 5:
             e_vals, e_vecs = eigh(Hs.todense())
         else:
             e_vals, e_vecs = eigsh(Hs, k=K, tol=TOL_EIGSH, which='SA')
