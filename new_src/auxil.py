@@ -51,7 +51,7 @@ def zeq(x, y, err):
 def gen_pols(n):
     '''Generate all possible polarizations for n cells'''
     if n <= 0:
-        return []
+        return [[]]
     return [tuple(2*int(x)-1 for x in format(i, '#0{0}b'.format(n+2))[2:])
             for i in xrange(pow(2, n))]
 
@@ -87,7 +87,7 @@ def getEk(c1, c2, DR=2):
     R = np.sqrt(np.sum(pow(X1-X2, 2), axis=2))
 
     if np.min(R) == 0:
-        print 'qdot overlap detected'
+        print('qdot overlap detected')
         return 0.
 
     # QCADesigner orders qdots either CW or CCW so same and diff configurations

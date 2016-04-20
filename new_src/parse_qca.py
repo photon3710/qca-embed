@@ -174,13 +174,14 @@ def zone_cells(cells, spacing):
     # construct connectivity matrix
     J = np.zeros([N, N], dtype=float)
     DR = R_MAX*spacing
-    for i in xrange(N-1):
-        for j in xrange(i+1, N):
+    for i in range(N-1):
+        for j in range(i+1, N):
             Ek = getEk(cells[i], cells[j], DR=DR)
             if Ek:
                 J[i, j] = -Ek
                 J[j, i] = -Ek
-                
+    
+
     # remove very weak interactions
     J = J * (np.abs(J) >= np.max(np.abs(J)*EK_THRESH))
     
@@ -205,7 +206,7 @@ def zone_cells(cells, spacing):
     G = nx.DiGraph()
     # nodes
     for clk in clk_ind:
-        for i in xrange(len(sub_ind[clk])):
+        for i in range(len(sub_ind[clk])):
             key = (clk, i)
             G.add_node(key, inds=sub_ind[clk][i])
     # edges
@@ -213,15 +214,15 @@ def zone_cells(cells, spacing):
         adj_clk = 3 if clk == 0 else clk-1
         if not adj_clk in sub_ind:
             continue
-        for i in xrange(len(sub_ind[clk])):
+        for i in range(len(sub_ind[clk])):
             k1 = (clk, i)
-            for j in xrange(len(sub_ind[adj_clk])):
+            for j in range(len(sub_ind[adj_clk])):
                 k2 = (adj_clk, j)
                 if np.any(J[G.node[k1]['inds'], :][:, G.node[k2]['inds']]):
                     G.add_edge(k2, k1)
 
     # find input nodes, have no predecessors
-    predecs = {n: len(G.predecessors(n)) for n in G.nodes_iter()}
+    predecs = {n: len(list(G.predecessors(n))) for n in G}
     inputs = [ky for ky, val in predecs.iteritems() if val == 0]
 
     # expand from inputs
@@ -241,7 +242,7 @@ def zone_cells(cells, spacing):
 
     # find feedback interactions
     feedback = {}
-    for n in G.nodes_iter():
+    for n in G:
         for p in G.predecessors(n):
             pshell = 0
             nshell = 0
@@ -328,7 +329,7 @@ def parse_qca_file(fn, one_zone=False):
 
     # reorder cells by zone and position
     cells, zones, J = reorder_cells(cells, zones, J)
-    
+ 
     # if only one zone is requested, don't need the zone order structure
     if one_zone:
         zones = zones[0]
