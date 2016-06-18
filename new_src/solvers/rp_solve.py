@@ -31,9 +31,9 @@ from pprint import pprint
 # solver parameters
 N_PARTS = 2     # number of partitions at each recursive step
 
-N_THRESH = 8            # largest allowed number of nodes for eact solver
-MEM_THRESH = 2e4        # maximum mode count product
-STATE_THRESH = 0.01     # required amplitude for state contribution
+N_THRESH = 6            # largest allowed number of nodes for exact solver
+MEM_THRESH = 1e4        # maximum mode count product
+STATE_THRESH = 0.1     # required amplitude for state contribution
 E_RES = 1e-3            # resolution in energy binning
 W_POW = 1               # power for weighting nodes in chlebikova bisection
     
@@ -112,7 +112,7 @@ def to_cache(Es, modes, cache_dir, hval, K, hp, inds):
 def run_pymetis(J, nparts):
     ''' '''
     
-    print('running {0}-way partitioning...'.format(nparts))
+#    print('running {0}-way partitioning...'.format(nparts))
     # run pymetis partitioning
     adj_list = nx.to_dict_of_lists(nx.Graph(J))
     adj_list = [adj_list[k] for k in range(len(adj_list))]
@@ -128,7 +128,7 @@ def run_pymetis(J, nparts):
 def run_chlebikova(J):
     ''' '''
     
-    print('Running chlebikova...')
+#    print('Running chlebikova...')
     G = nx.Graph(J!=0)
     for k in G:
         G.node[k]['w'] = 1./len(G[k])**W_POW
@@ -303,7 +303,7 @@ def select_modes(ES, MS):
     for p in range(Np):
         m_p[p] += len(MS[p][0])
         prod *= m_p[p]
-    
+
     # check fill condition
     assert prod < MEM_THRESH, 'Not enough memory for ground state inclusion'
     
@@ -353,6 +353,8 @@ def comp_on_partition(h, J, gam, modes):
     '''Compute on-partition parameters'''
     
     N = h.size
+    
+    modes = np.matrix(modes)
     
     J_ = np.matrix(np.triu(J))
     sz = np.dot(h, modes.T).reshape([-1,])

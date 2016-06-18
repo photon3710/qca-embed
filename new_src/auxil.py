@@ -13,6 +13,8 @@ from copy import deepcopy as dc
 from heapq import heappop, heappush
 from collections import defaultdict
 
+from pprint import pprint
+
 # physical parameters
 eps0 = 8.85412e-12  # permittivity of free space
 epsr = 12.          # relative permittivity
@@ -399,3 +401,91 @@ def hash_problem(h, J, res=3):
         hash_vals[hp] = hash((hash_mat(h_), hash_mat(J_)))
     
     return hash_vals, K, hps, inds
+    
+
+
+### --------------------------------------------------------------------------
+### LOGICAL STATE CONVERSION
+
+def find_chains(J, end_nodes):
+    '''Find the chains between all end_nodes'''
+    
+    N = J.shape[0]
+    
+    # convert J to adj lists
+    adj = {i: {} for i in range(N)}
+    for i, j in zip(*np.nonzero(J)):
+        adj[i][j] = adj[j][i] = J[i,j]
+    
+    # chains[n1[n2] is the list of nodes from n1 to n2, n1<n2 are end-nodes
+    chains = []
+
+    # for each end-node, propagate along each unvisited neighbour until a new 
+    # end-node is reached. Mark each node along the way as visited
+    visited = [False]*N
+    end_node = [False]*N
+    for n in end_nodes:
+        end_node[n]=True
+
+    for start in end_nodes:
+        for node in filter(lambda x: not visited[x], adj[start]):
+            chain = [start, node]
+            while not end_node[node]:
+                visited[node] = True
+                node = [x for x in adj[node] if x != chain[-2]][0]
+                chain.append(node)
+            if chain[0]>chain[-1]:
+                chain = chain[::-1]
+            chains.append(chain)
+        visited[start] = True
+    
+    return chains
+
+def find_end_nodes(h, J):
+    ''' '''
+    
+    N = len(h)
+
+    # count number of J=-1 neighbours for each node
+    counts = np.sum(J < -.9, axis=0).reshape([-1,])
+
+    # count number of neighbours for each node
+    nadjs = np.sum(J != 0, axis=0).reshape([-1,])   
+    
+    # internal nodes have 2 neighbours each having J = -1
+    s1 = set(np.nonzero(counts == 2)[0])
+    s2 = set(np.nonzero(nadjs == 2)[0])
+    inter_nodes = s1.intersection(s2)
+    
+    # everything else is an end node
+    end_nodes = sorted(set(range(N))-inter_nodes)
+
+    return end_nodes
+
+
+def logical_chains(h, J):
+    '''Prepare the logical state mapping parameters from the h and J matrices'''
+    
+    # format inputs
+    h_ = np.array(h).reshape([-1,])
+    J_ = np.array(J)
+    J_ /= np.max(np.abs(J))
+    
+    end_nodes = find_end_nodes(h_, J_)
+    chains = find_chains(J_, end_nodes)
+    
+    return chains
+
+def to_logical(states, chains):
+    '''Convert states to logical representation. states[:,i] should be'''
+    
+    logical = []
+    for chain in chains:
+        spins = states[chain,:]
+        diffs = np.sum(np.abs(np.diff(spins, axis=0)), axis=0)//2
+        logical.append(diffs)
+    logical = np.array(logical)
+    
+    return logical
+        
+        

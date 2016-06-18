@@ -1,131 +1,84 @@
 import json
+import os
+
 import numpy as np
-#from pprint import pprint
-from collections import defaultdict
 
 class Solution:
-    ''' '''
-
+    '''General class describing an Ising solution'''
+    
     def __init__(self, fname=None):
-        '''Create a Solution object from a given file'''
-
-        # initialise parameters
-        self.qbits = None
-        self.fname = fname
-
+        '''Initialise a Solution object'''
+        
+        # parameters
+        self.nodes = []         # ordered labels for problem nodes
+        self.J = None           # interaction parameters
+        self.h = None           # biases
+        self.hash = None        # hash key
+        self.fname = None       # file path
+        self.qca_fname = None   # file path to qca file
+        
+        self.states = []    # observed outcomes
+        self.energies = []  # energies for the observed outcomes
+        self.probs = []      # probability of each outcome
+        
         if fname:
             self.from_json(fname)
-
-
+        
     def from_json(self, fname):
-        '''Load the Solution parameters from a JSON file'''
-
+        '''Load solution from json file'''
+        
         try:
             fp = open(fname, 'r')
         except IOError:
             print('Failed to load file: {0}'.format(fname))
             raise IOError
-
+        
         data = json.load(fp)
         fp.close()
-
+        
         # parameters
-        self.qbits = [qb[0] for qb in data['usedqubits']]
-        self.gt = np.array([zip(*x)[0] for x in data['gt']])
-        self.hwtime = data['hwtime']
-        self.params = data['params']
-
-        # results
-        self.spins = np.array(data['all_spin'], dtype=int).transpose()
+        self.nodes = data['nodes']
+        self.J = np.array(data['J'])
+        self.h = np.array(data['h']).reshape([-1,])
+        self.hash = data['hash']
+        self.fname = fname
+        if 'qca_name' in data:
+            self.qca_fname = data['qca_fname']
         
-        self.energies = data['all_energies']
-        self.occ = data['all_hwocc']
-        self.cell_occ = data['cell_occ']['_ArrayData_']
-
-    def build(self, **kwargs):
-        '''Set Solution parameters directly'''
-        
-        try:
-            self.fname = kwargs['fname']
-            self.qbits = kwargs['qbits']
-            self.gt = kwargs['gt']
-            self.hwtime = kwargs['hwtime']
-            self.params = kwargs['params']
-            self.spins = kwargs['spins']
-            self.energies = kwargs['energies']
-            self.occ = kwargs['occ']
-            self.cell_occ = kwargs['cell_occ']
-        except KeyError:
-            print('Missing input field')
-        
-    # accessors
+        self.states = data['states']
+        self.energies = data['energies']
+        self.probs = data['probs']
     
-    def get_reduced_solution(self, inds, efunc):
-        '''Get the states and number of instances for the given indices. Traces
-        over other indices'''
+    def to_file(self, fname=None):
+        '''Save solution to json file'''
 
-        # confirm inds is a subset of qbits
-        if not all([ind in self.qbits for ind in inds]):
-            raise KeyError('Requested indices invalid...')
-
-        # subset of spins
-        qb_map = {self.qbits[i]: i for i in range(len(self.qbits))}
-        qb_inds = [qb_map[ind] for ind in inds]
+        data = {}
+        data['nodes'] = self.nodes
+        data['J'] = self.J
+        data['h'] = self.h
+        data['hash'] = self.hash
+        data['qca_fname'] = self.qca_fname
         
-        reduced_spins = self.spins[:, qb_inds].tolist()
+        data['states'] = self.states
+        data['energies'] = self.energies
+        data['probs'] = self.probs
         
-        # construct gt mapping
-        gt_map = {}
-        gt = {}
-        for i in range(self.gt.shape[0]):
-            x = tuple(self.gt[i,qb_inds])
-            if x not in gt:
-                gt[x] = len(gt)+1
-            gt_map[i+1] = gt[x]
-
-        gt = np.array(zip(*sorted(gt.items(), key=lambda x:x[1]))[0])
+        if fname is None:
+            fname = self.fname
         
-        # construct spins mapping
-        spin_map = {}
-        spins = {}
-        for i in range(len(reduced_spins)):
-            x = tuple(reduced_spins[i])
-            if x not in spins:
-                spins[x] = len(spins)+1
-            spin_map[i+1] = spins[x]
+        # build save location
+        dir_name = os.path.dirname(fname)
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
         
-        spins = np.array(zip(*sorted(spins.items(), key=lambda x:x[1]))[0])
+        # output to json file
+        fp = open(fname, 'w')
+        json.dump(data, fp)
+        fp.close()
         
-        # count observed spins for each gauge transformation
-        cell_occ = {g: defaultdict(int) for g in range(1, 1+gt.shape[0])}
-        occ = defaultdict(int)
-        for s, g, o in self.cell_occ:
-            cell_occ[gt_map[g]][spin_map[s]] += o
-            occ[spin_map[s]] += o
-
-        energies = []
-        for spin in spins:
-            energies.append(efunc({inds[i]: spin[i] for i in range(len(inds))}))
-    
-        # sort by energy
-        ninds, energies = zip(*sorted(enumerate(energies), key=lambda x: x[1]))
-        ind_map = {ninds[k]+1: k+1 for k in range(len(ninds))}
+    def model_maj(self, models, ind_map=None):
+        '''Reduce given models to logical qubits'''
+        pass
         
-        spins = spins[ninds, :]
-        occ = [occ[k+1] for k in ninds]
-        for g in cell_occ:
-            cell_occ[g] = {ind_map[k]: cell_occ[g][k] for k in cell_occ[g]}
         
-        new_sol = Solution()
-        kwargs = {'fname': self.fname,
-                  'qbits': inds,
-                  'gt': gt,
-                  'hwtime': self.hwtime,
-                  'params': self.params,
-                  'spins': spins,
-                  'energies': energies,
-                  'occ': occ,
-                  'cell_occ': cell_occ}
-        new_sol.build(**kwargs)
-
-        return new_sol
+        

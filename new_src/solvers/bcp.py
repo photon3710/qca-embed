@@ -123,7 +123,7 @@ def chlebikova(G):
 
     # Assert graph format and structure
     assert isinstance(G, nx.Graph), 'G is not an undirected nx.Graph'
-    assert nx.number_connected_components > 1, 'G is not connected'
+    assert nx.number_connected_components(G) == 1, 'G is not connected'
     
     # Handle default weighting
     for k in G:

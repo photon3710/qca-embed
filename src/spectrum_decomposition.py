@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import scipy.sparse as sp
 from scipy.sparse.linalg import eigsh
 from numpy.linalg import eigh
+from pprint import pprint
 
 from parse_qca import parse_qca_file
 
@@ -12,21 +13,20 @@ import sys
 
 GMIN = 0.1      # weak tunneling limit
 GMAX = 10       # strong tunneling limit
-NSTEPS = 100     # nmber of steps between clocks
+NSTEPS = 400     # nmber of steps between clocks
 
 T = 273               # characteristic temperature
 kT = 8.617e-5*T     # characteristic energy
 
 # formatting
 FS = 14
-
-
-def gamma_schedule(gmin, gmax, N, nsteps):
+    
+def gamma_schedule(gmin, gmax, N, nsteps, offset=0.):
     '''Clocking schedule for N zones with nsteps between clocks'''
     
     for step in xrange(nsteps):
         yield [gmin+.5*(gmax-gmin)*(1-np.cos(2*np.pi*(step/nsteps - \
-            (n%4)/4))) for n in xrange(N)]
+            (n%4)/4+offset))) for n in xrange(N)]
 
 def sorted_merge(lists):
     return sorted(reduce(lambda x, y: x+y, lists))
@@ -73,6 +73,16 @@ def pauli_z(n, N):
     
     return np.tile(np.repeat(sz, 2**(N-n)), [1, 2**(n-1)])
 
+def to_state(vecs):
+    '''map eig vecs to state polarizations'''
+    N = int(np.log2(vecs.shape[0]))
+    probs = np.power(np.abs(vecs), 2)
+    
+    D = [np.array(np.dot(pauli_z(i, N), probs)) for i in range(1, N+1)]
+    D = np.array(D)
+    
+    print(pprint(np.round(D, 2)))
+    
 def gen_gamma(N):
     '''compute sum of tunneling term for a single zone'''
     
@@ -160,12 +170,15 @@ def state_substate(ind, Mz):
 def decompose(vecs, vals, Mz):
     '''Collapse state space to mode decomp'''
     
+    # comp: state amplitudes scaled by Boltzmann factor
+    # scomp: comp for each zone
+
     Es = np.array(vals)-np.min(vals)
     
     facts = factor(Es)
     amps = np.power(np.abs(vecs), 2)
-    comp = np.dot(amps, facts)
-
+    comp = np.asarray(np.dot(amps, facts)).reshape([-1,])
+    
     # break into sub-space modes
     scomps = [[0]*2**M for M in Mz]
     for ind in range(vecs.shape[0]):
@@ -198,41 +211,57 @@ def main(fname):
     G = []
     C = []
     SC = [[] for _ in xrange(Nz)]
+    E = []
     while True:
         try:
             gammas = next(schedule)
         except:
             break
-        print('.'),
+        sys.stdout.write('\r{0:.1f}%'.format((len(G)+1)*100./NSTEPS))
+        sys.stdout.flush()
         G.append(gammas)
 
+        # construct new Hamiltonian
         H = H0.copy()
         for n in xrange(Nz):
             H = H + gammas[n]*Gammas[n]
         
         # analyse spectrum
-        evals, evecs = eigsh(H, which='SA', k=2*int(np.log2(H.shape[0])))
+        if H.shape[0]>5:
+            evals, evecs = eigsh(H, which='SA', k=2*int(np.log2(H.shape[0])))
+        else:
+            evals, evecs = eigh(H.todense())
         
-        # decompose
+#        to_state(evecs)
+        
+        # decompose and store
         comp, scomps = decompose(evecs, evals, Mz)
         
         C.append(comp)
         for i in xrange(Nz):
             SC[i].append(scomps[i])
+        E.append(evals)
     
+    # standardize formatting
     G = np.array(G)
+    E = np.array(E)
     C = np.array(C).transpose()
     SC = [np.array(SC[i]).transpose() for i in xrange(Nz)]
-    
-    # find state reordering
+
+    # find state reordering, sorted by max contribution summed over full clock
     C = C[np.argsort(-np.sum(C, axis=1)),:]
-    SC = [sc[np.argsort(-np.sum(sc, axis=1)), :] for sc in SC]
-    
+    SC = [sc[np.argsort(-np.sum(sc, axis=1)), :] for sc in SC]    
     
     C = C[0:int(np.sqrt(C.shape[0])), :]
 #    SC = [sc[0:int(np.sqrt(sc.shape[0])), :] for sc in SC]
 
     X = np.linspace(0, 1, NSTEPS)
+    
+    plt.figure('Spectrum')
+    plt.plot(X, E)
+    plt.xlabel('Time', fontsize=FS)
+    plt.ylabel('Energy (eV)', fontsize=FS)
+    plt.show(block=False)
     
     plt.figure('Gamma Schedule')
     plt.plot(X, G)
@@ -256,6 +285,7 @@ def main(fname):
         plt.show(block=False)
     
     plt.show(block=True)
+    print('\n')
 
 
 if __name__ == '__main__':

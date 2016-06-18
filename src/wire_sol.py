@@ -24,7 +24,7 @@ MS = 5
 MEW = 2
 
 EPS = 1e-9  # very small value
-SAVE = True
+SAVE = False
 SHOW_GAPS = False
 THRESH = 0.02
 
@@ -49,6 +49,40 @@ def hyper_fit(x, y):
 
     return popt, func
 
+def check_fermion_model(Y, h):
+    ''' '''
+    
+    N = len(h)
+    if h[0]==0:
+        N -= 1
+    
+    # find first excited states, assume Y[:,0] corresponds to gamma=0
+    err = 1e-3
+    gap0 = Y[0, :]-Y[0, 0]
+    print(gap0)
+
+    inds = np.nonzero(np.abs(gap0-2*h[0]) < err)[0].tolist()
+    if h[0] != 1:
+        inds += np.nonzero(np.abs(gap0-2) < err)[0].tolist()
+    
+    
+    
+    # pull off creation energies
+    eps_k = Y[:, inds] - np.tile(Y[:, 0].reshape([-1,1]), [1, N])
+    
+    grnd = -.5*np.sum(eps_k, axis=1)
+    
+    # analytical model
+    gap_fncs = []
+    for n in range(0, N+1):
+        for comb in combinations(range(N), n):
+            gap_fncs.append(grnd + np.sum(eps_k[:, comb], axis=1))
+    
+    E = np.array(gap_fncs).T
+    
+    return E, eps_k
+    
+    
 
 def analytical_gaps(N, n, gammas):
     '''Compute analytical energy gaps for the n^th degenerate set'''
@@ -165,14 +199,18 @@ def sweep_gamma(h, J, gmin, gmax, steps=2, show=True):
 #            print('Fit failed...')
 
     # analytical solutions
-    if SHOW_GAPS:
-        ground = np.zeros(gammas.shape, dtype=float)
+    if True:
+        E_an, eps_k = check_fermion_model(Y, h)
+        plt.plot(gammas, E_an, 'k-', linewidth=2)
     else:
-        ground = analytical_ground(len(h), gammas)
-    for n in xrange(0, N+1):
-        gaps = analytical_gaps(len(h), n, gammas)
-        for gap in gaps:
-            plt.plot(gammas, ground+gap, 'k-', linewidth=2)
+        if SHOW_GAPS:
+            ground = np.zeros(gammas.shape, dtype=float)
+        else:
+            ground = analytical_ground(len(h), gammas)
+        for n in xrange(0, N+1):
+            gaps = analytical_gaps(len(h), n, gammas)
+            for gap in gaps:
+                plt.plot(gammas, ground+gap, 'k-', linewidth=2)
 
     # save figure
     if SAVE:
@@ -198,5 +236,5 @@ if __name__ == '__main__':
         gpar = [-5, 5, 60]
 
     J = wire_J(N)
-    h = [1]+[0]*(N-1)
+    h = [.435]+[0]*(N-2) + [.6]
     sweep_gamma(h, J, gpar[0], gpar[1], steps=gpar[2])

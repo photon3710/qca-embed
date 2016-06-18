@@ -1,5 +1,5 @@
 from PyQt4 import QtGui, QtCore
-from core.solution import Solution
+from core.dwave_sol import DWAVE_Sol
 
 import sys, os, re
 import numpy as np
@@ -14,7 +14,7 @@ COEF_DIR = os.path.join('experiments', 'cross-talk')
 COEF_DIR = os.path.join(os.getcwd(), os.pardir, COEF_DIR) 
 
 E_TOL = 1e-6    # allowed difference between given and computed energies
-N_THRESH = 5
+N_THRESH = 10
         
 FS = 14
 
@@ -88,6 +88,8 @@ class MainWindow(QtGui.QMainWindow):
         self.result_dir_base = RES_DIR
         self.coef_dir_base = COEF_DIR
         
+        self.n_thresh = N_THRESH
+        
         # main window parameters
         geo = [100, 100, 400, 100]
         self.setGeometry(*geo)
@@ -135,7 +137,10 @@ class MainWindow(QtGui.QMainWindow):
         b4 = QtGui.QPushButton(self, text='Exit')
         b4.clicked.connect(QtCore.QCoreApplication.instance().quit)
         
-        hb3.addStretch(stretch=3)
+        self.i3 = QtGui.QLineEdit(self)
+        self.i3.setText(str(N_THRESH))
+    
+        hb3.addWidget(self.i3, stretch=3)
         hb3.addWidget(b3, stretch=1)
         hb3.addWidget(b4, stretch=1)
         
@@ -196,7 +201,7 @@ class MainWindow(QtGui.QMainWindow):
 
         return h, J
 
-    def dist_comp(self, P, Q, label='', block=True):
+    def dist_comp(self, P, Q, label='', block=True, plot=False):
         '''Direct comparison of two Solution distribution'''
         
         hash_ = lambda s: hash(tuple(s.tolist()))
@@ -230,7 +235,7 @@ class MainWindow(QtGui.QMainWindow):
 
         # remove rare outputs
         if True:
-            inds = np.nonzero(np.sum(occs, axis=0) > N_THRESH)[0]
+            inds = np.nonzero(np.sum(occs, axis=0) > self.n_thresh)[0]
             occs = occs[:, inds]
             
         # compute statistical distance
@@ -239,16 +244,18 @@ class MainWindow(QtGui.QMainWindow):
         
         print('Statistical Distance: {0:.3f}'.format(sd))
         
-        # plot both distributions
-        X = np.arange(occs.shape[1])
-        w = .3
-        plt.figure(label)
-        plt.bar(X-.75*w, occs[0, :], width=.5*w, color=(1, 0, 0))
-        plt.bar(X+.25*w, occs[1, :], width=.5*w, color=(0, 0, 1))
-        plt.title('Number of output occurances', fontsize=FS)
-        plt.xlabel('State index', fontsize=FS)
-        plt.ylabel('Number of occurances', fontsize=FS)
-        plt.show(block=block)
+        if plot:
+            # plot both distributions
+            X = np.arange(occs.shape[1])
+            w = .3
+            plt.figure(label)
+            plt.bar(X-.75*w, occs[0, :], width=.5*w, color=(1, 0, 0))
+            plt.bar(X+.25*w, occs[1, :], width=.5*w, color=(0, 0, 1))
+            plt.title('Number of output occurances', fontsize=FS)
+            plt.legend([label, 'AB'], fontsize=FS)
+            plt.xlabel('State index', fontsize=FS)
+            plt.ylabel('Number of occurances', fontsize=FS)
+            plt.show(block=block)
         
         
     def run_processing(self):
@@ -256,6 +263,7 @@ class MainWindow(QtGui.QMainWindow):
         
         ab_fname = os.path.normpath(str(self.i1.text()))
         coef_fname = os.path.normpath(str(self.i2.text()))
+        self.n_thresh = int(self.i3.text())
         
         # confirm fname  format
         if not re.match('.*_AB_[0-9]+us.json', ab_fname):
@@ -285,9 +293,9 @@ class MainWindow(QtGui.QMainWindow):
         # preamble done, now process
         print('loading solution files...')
         try:
-            a_sol = Solution(a_fname)
-            b_sol = Solution(b_fname)
-            ab_sol = Solution(ab_fname)
+            a_sol = DWAVE_Sol(a_fname)
+            b_sol = DWAVE_Sol(b_fname)
+            ab_sol = DWAVE_Sol(ab_fname)
         except IOError:
             print('Failed to read at least one of the solution files')
             return
@@ -312,14 +320,14 @@ class MainWindow(QtGui.QMainWindow):
         a_keys, a_key_inds, i = {}, [], 0
         for j in range(len(ab_marg['A'].energies)):
             key, occ = hash_(ab_marg['A'].spins[j, :]), ab_marg['A'].occ[j]
-            if occ > N_THRESH:
+            if occ > self.n_thresh:
                 a_keys[key], i = i, i+1
                 a_key_inds.append(j)
 
         b_keys, b_key_inds, i = {}, [], 0
         for j in range(len(ab_marg['B'].energies)):
             key, occ = hash_(ab_marg['B'].spins[j, :]), ab_marg['B'].occ[j]
-            if occ > N_THRESH:
+            if occ > self.n_thresh:
                 b_keys[key], i = i, i+1
                 b_key_inds.append(j)
         
@@ -343,9 +351,11 @@ class MainWindow(QtGui.QMainWindow):
             ab_sd = stat_dist(ab_occ, ab_marg_occ)
             print('Statistical Distance: {0:.4f}'.format(ab_sd))
 
-            if False:
+            if True:
+                
+                vmax = max(np.max(ab_occ), np.max(ab_marg_occ))
                 plt.figure('JD')
-                plt.imshow(ab_occ, interpolation='none', aspect='auto')
+                plt.imshow(ab_occ, interpolation='none', aspect='auto', vmin=0, vmax=vmax)
                 plt.colorbar()
                 plt.title('Joint distribution', fontsize=FS)
                 plt.xlabel('A state index', fontsize=FS)
@@ -353,7 +363,7 @@ class MainWindow(QtGui.QMainWindow):
                 plt.show(block=False)
                 
                 plt.figure('JMD')
-                plt.imshow(ab_marg_occ, interpolation='none', aspect='auto')
+                plt.imshow(ab_marg_occ, interpolation='none', aspect='auto', vmin=0, vmax=vmax)
                 plt.colorbar()
                 plt.title('Joint marginal distribution', fontsize=FS)
                 plt.xlabel('A state index', fontsize=FS)
@@ -371,8 +381,8 @@ class MainWindow(QtGui.QMainWindow):
             print('Too many data points to safely plot')
         
         # compare marginal distribution to isolated distribution
-        self.dist_comp(a_sol, ab_marg['A'], 'A')
-        self.dist_comp(b_sol, ab_marg['B'], 'B')
+        self.dist_comp(a_sol, ab_marg['A'], 'A', plot=True)
+        self.dist_comp(b_sol, ab_marg['B'], 'B', plot=True)
 
         
         

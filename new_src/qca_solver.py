@@ -47,7 +47,7 @@ def exact_solve(fname, gammas = [0.], k=-1, adj=None):
     P_f = [(cells[i]['pol'] if 'pol' in cells[i] else 0.) for i in fixeds]  # polarization of fixed cells
     
     h0 = np.dot(P_f, J_f).reshape([-1,])    # h contribution from fixed cells
-    
+
     # for each polarization, solve for all gammas
     for pol in gen_pols(len(drivers)):
         h = h0 + np.dot(pol, J_d)
@@ -68,4 +68,4 @@ if __name__ == '__main__':
         print('No QCA file given...')
         sys.exit()
         
-    exact_solve(fname, gammas = [0.,], adj='full')
+    exact_solve(fname, gammas = [0.,], adj=None)

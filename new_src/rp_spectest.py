@@ -14,9 +14,9 @@ from auxil import CELL_FUNCTIONS, gen_pols, convert_adjacency
 
 FS = 14
 CACHE = './solvers/cache/temp'
-STEPS = 100
-
-def compare_spectrum(fname, gmin=0.01, gmax=1., adj='lim'):
+STEPS = 1
+    
+def compare_spectrum(fname, gmin=0.01, gmax=.5, adj='lim'):
     ''' '''
     
     try:
@@ -59,10 +59,13 @@ def compare_spectrum(fname, gmin=0.01, gmax=1., adj='lim'):
     for pol in gen_pols(len(drivers)):
         h = h0 + np.dot(pol, J_d)
         SP_E, RP_E = [], []
+        times = []
         for gamma in gammas:
             print(gamma)
+            t = time()
             rp_vals, rp_vecs, modes = rp_solve(h, J_n, gam=gamma, 
                                                cache_dir=CACHE)
+            times.append(time()-t)
             sp_vals, sp_vecs = solve(h, J_n, gamma=gamma)
             SP_E.append(sp_vals)
             RP_E.append(rp_vals)
@@ -71,12 +74,19 @@ def compare_spectrum(fname, gmin=0.01, gmax=1., adj='lim'):
         SP_E = np.array([x[:L] for x in SP_E])
         RP_E = np.array([x[:L] for x in RP_E])
         
-        plt.plot(gammas, SP_E, 'g', linewidth=2)
-        plt.plot(gammas, RP_E, 'bx', markersize=8, markeredgewidth=2)
+        plt.figure('spectrum')
+        plt.plot(gammas, SP_E, linewidth=2)
+        plt.plot(gammas, RP_E, 'x', markersize=8, markeredgewidth=2)
         plt.xlabel('Gamma', fontsize=FS)
         plt.ylabel('Energy', fontsize=FS)
         plt.title('Circuit Spectrum', fontsize=FS)
-        plt.legend(['Exact', 'RP-Solver'], fontsize=FS)
+        plt.show(block=False)
+        
+        plt.figure('runtimes')
+        plt.plot(gammas, times, 'b', linewidth=2)
+        plt.xlabel('Gammas', fontsize=FS)
+        plt.ylabel('Runtime (s)', fontsize=FS)
+        plt.title('RP-Solver runtime', fontsize=FS)
         plt.show()
     
 if __name__ == '__main__':

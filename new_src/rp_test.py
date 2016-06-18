@@ -12,7 +12,6 @@ from solvers.rp_solve import rp_solve
 
 from time import time
 
-
 def approx_solve(fname, gammas = [0.], k=-1, adj=None):
     ''' '''
     # process the QCADesigner file
@@ -21,7 +20,7 @@ def approx_solve(fname, gammas = [0.], k=-1, adj=None):
     except:
         print('Failed to process QCA file: {0}'.format(fname))
         return None
-        
+
     # convert J to specified adjacency
     J = convert_adjacency(cells, spacing, J, adj=adj)
     
@@ -40,6 +39,7 @@ def approx_solve(fname, gammas = [0.], k=-1, adj=None):
                 outputs.append(i)
             normals.append(i)
     
+    print(fixeds)
     # map from output cell labels to indices in normals list
     output_map = {i: n for n, i in enumerate(normals) if i in outputs}
     
@@ -56,7 +56,7 @@ def approx_solve(fname, gammas = [0.], k=-1, adj=None):
         h = h0 + np.dot(pol, J_d)
         for gamma in gammas:
             t = time()
-            e_vals, e_vecs, modes = rp_solve(h, J_n, gam=gamma, verbose=False)
+            e_vals, e_vecs, modes = rp_solve(h, J_n, gam=gamma, verbose=True)
             print('\n')
             print(e_vals[0:2], time()-t)
             if False:

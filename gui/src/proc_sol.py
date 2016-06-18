@@ -1,6 +1,6 @@
 from PyQt4 import QtGui, QtCore
 
-from core.solution import Solution
+from core.dwave_sol import DWAVE_Sol
 from core.chimera import tuple_to_linear
 
 import sys
@@ -384,7 +384,7 @@ class MainWindow(QtGui.QMainWindow):
         
         # get solution object
         try:
-            solution = Solution(fname)
+            solution = DWAVE_Sol(fname)
             sol_name = os.path.basename(fname)
         except IOError:
             return
@@ -396,7 +396,6 @@ class MainWindow(QtGui.QMainWindow):
             qbits = [tuple_to_linear(qb, M=12, N=12, L=4, index0=False) for qb in qbits]
             spins, occ = solution.get_reduced_solution(qbits)
             self.save_subsol(embed, pols, spins, occ, pind, rt, sol_name)
-        
         
     def run_processing(self):
         ''' '''

@@ -22,7 +22,7 @@ from core import generate_H
 TOL_EIGSH = 1e-7
 
 def solve_sparse(Hs, minimal=False, verbose=False, more=False, exact=False,
-                 k = None):
+                 k=None):
     '''Finds a subset of the eigenstates/eigenvalues for a sparse formatted 
     Hamiltonian. Note: sparse solver will give inaccurate results if Hs is
     triangular.'''
