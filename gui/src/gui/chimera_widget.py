@@ -259,7 +259,7 @@ class Canvas(QtGui.QWidget):
 
     def paint(self, painter):
         ''' '''
-        
+
         # draw tile background
         self.drawTiles(painter)
 
@@ -271,7 +271,7 @@ class Canvas(QtGui.QWidget):
 
         # draw tile labels
         self.drawLabels(painter)
-        
+
     def paintEvent(self, e):
         ''' '''
 
@@ -392,7 +392,7 @@ class ChimeraWidget(QtGui.QScrollArea):
 
     def resetNodes(self, embedding):
         '''Reset the nodes of an embedding to non-used'''
-        
+
         models = embedding.models
         active_range = embedding.active_range
 
@@ -425,7 +425,7 @@ class ChimeraWidget(QtGui.QScrollArea):
 
         # highlight corresponding cell in QCAWidget
         self.parent.qca_widget.selectCell(cell)
-        
+
         # highlight nodes of embedding
         self.selectNodes(embedding, cell)
 
@@ -540,12 +540,12 @@ class ChimeraWidget(QtGui.QScrollArea):
 
     def save_svg(self, fname):
         '''Write the cchimera graph to an svg file'''
-        
+
         generator = QtSvg.QSvgGenerator()
         generator.setFileName(fname)
         generator.setSize(self.canvas.size())
         generator.setViewBox(self.canvas.rect())
-        
+
         painter = QtGui.QPainter()
         painter.begin(generator)
         self.canvas.paint(painter)
@@ -570,7 +570,7 @@ class ChimeraWidget(QtGui.QScrollArea):
         elif e.key() == QtCore.Qt.Key_Down:
             self.verticalScrollBar().setValue(
                 self.verticalScrollBar().value() + scroll_delta)
-        
+
         self.parent.keyPressEvent(e)
 
     def keyReleaseEvent(self, e):

@@ -25,7 +25,7 @@ BUTTON_SIZE = 25    # size of buttons
 # QCA CELL PARAMETERS
 CELL_SEP = 70               # Space between QCA cells
 CELL_SIZE = .8*CELL_SEP     # Size of QCA cell
-#CELL_ALPHA = int(.15*255)   # 
+#CELL_ALPHA = int(.15*255)   #
 
 # --colors
 RED = QtGui.QColor(255, 0, 0)

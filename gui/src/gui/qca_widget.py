@@ -45,13 +45,13 @@ class QCACellWidget(QtGui.QWidget):
             x = settings.CELL_SEP*(qd['x']-offset[0])*1./spacing
             y = settings.CELL_SEP*(qd['y']-offset[1])*1./spacing
             self.qdots.append([x, y])
-        
+
         # flags for cell type (simplifies access later)
         self.fixed = self.type == CELL_FUNCTIONS['QCAD_CELL_FIXED']
         self.driver = self.type == CELL_FUNCTIONS['QCAD_CELL_INPUT']
         self.output = self.type == CELL_FUNCTIONS['QCAD_CELL_OUTPUT']
         self.normal = not (self.fixed or self.driver)
-        
+
         if self.fixed:
             self.pol = cell['pol']
         else:
@@ -255,7 +255,7 @@ class QCAWidget(QtGui.QScrollArea):
 
         # update J coefficients
         self.J = J
-        
+
         # set up adjacency conversion variables
         Js, T, A, DX, DY = prepare_convert_adj(cells, spacing, J)
         self.convert_vars = {'Js': Js,
@@ -263,7 +263,7 @@ class QCAWidget(QtGui.QScrollArea):
                              'A': A,
                              'DX': DX,
                              'DY': DY}
-        
+
 #        print np.round(Js, 3)
 #        print T
 #        print np.round(DX, 1)
@@ -299,7 +299,7 @@ class QCAWidget(QtGui.QScrollArea):
             self.addCell(cell)
 
         self.canvas.update()
-    
+
     def setAdjacency(self, full_adj, update=True):
         ''' '''
         self.full_adj = full_adj
@@ -347,17 +347,17 @@ class QCAWidget(QtGui.QScrollArea):
 
     def prepareCircuit(self):
         '''Return needed parameters for embedding'''
-        
+
         return self.J0, self.cells
 
     def save_svg(self, fname):
         '''Write the QCA circuit to an svg file'''
-        
+
         generator = QtSvg.QSvgGenerator()
         generator.setFileName(fname)
         generator.setSize(self.canvas.size())
         generator.setViewBox(self.canvas.rect())
-        
+
         painter = QtGui.QPainter()
         painter.begin(generator)
         self.canvas.paint(painter)
