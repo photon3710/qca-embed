@@ -8,11 +8,19 @@
 # Last Modified: 2015.10.22
 #---------------------------------------------------------
 
+# NOTE
+# the original parse script no longer seems to work (change in networkx?)
+# for the purposes of the embedder, we fon't need to consider clock zones so
+# I have simplified the parseing script to remove that functionality.
+
 import re
 
 import networkx as nx
 import numpy as np
 from auxil import getEk, CELL_FUNCTIONS, CELL_MODES
+from itertools import combinations
+
+from pprint import pprint
 
 ## general global parameters
 
@@ -164,6 +172,25 @@ def proc_hierarchy(hier):
 
 ## CIRCUIT PROCESSING
 
+def build_J(cells, spacing, r_max=R_MAX):
+    '''Build the J matrix for the given circuit. Restricts the interaction
+    distance to r_max but does not apply any adjacency contraints'''
+
+    N = len(cells)
+
+    # contruct connectivvity matrix
+    J = np.zeros([N, N], dtype=float)
+    DR = r_max*spacing
+    for i,j in combinations(range(N), 2):
+        Ek = getEk(cells[i], cells[j], DR=DR)
+        if Ek:
+            J[i,j] = J[j,i] = Ek
+
+    # remove very weak interactions
+    J = J*(np.abs(J) >= np.max(np.abs(J)*EK_THRESH))
+
+    return J
+
 def zone_cells(cells, spacing, show=False):
     '''Split cells into clock zones. Distinguishes disjoint zones with the
     same zone index'''
@@ -276,46 +303,36 @@ def zone_cells(cells, spacing, show=False):
     order = [[form_func(zone) for zone in shell] for shell in order]
 
     return order, J, feedback
-    
 
-def reorder_cells(cells, zones, J, flipy=False):
+
+def reorder_cells(cells, J, flipy=False):
     '''Renumber cells by position rather than the default QCADesigner placement
     order. Cells ordered by the tuple (zone, y, x)'''
 
     keys = {}
+    ysgn = -1 if flipy else 1
 
     # assign sortable tuples for each cell
-    for iz in xrange(len(zones)):
-        zone = zones[iz]
-        for iz_sub in xrange(len(zone)):
-            for ind in zone[iz_sub]:
-                cell = cells[ind]
-                y_sign = -1 if flipy else 1
-                keys[ind] = (iz, iz_sub, y_sign*cell['y'], cell['x'])
+    for ind, cell in enumerate(cells):
+        keys[ind] = (ysgn*cell['y'], cell['x'])
 
     order = zip(*sorted([(keys[i], i) for i in keys]))[1]
+    print(order)
 
     # relabel cells and reorder the J matrix
     cells = [cells[i] for i in order]
     J = J[order, :][:, order]
 
-    for i in xrange(len(cells)):
+    for i in range(len(cells)):
         cells[i]['num'] = i
-
-    # relabel each of the zones index lists
-    inv_map = {order[i]: i for i in order}
-    label_func = lambda lst: sorted([inv_map[c] for c in lst])
-    zones = [[label_func(zn) for zn in shell] for shell in zones]
-
-    for i in xrange(len(cells)):
         cells[i]['number'] = i
 
-    return cells, zones, J
+    return cells, J
 
 
 ## MAIN FUNCTION
 
-def parse_qca_file(fn, one_zone=False, show=False):
+def parse_qca_file(fn):
     '''Parse a QCADesigner file to extract cell properties. Returns an ordered
     list of cells, the QCADesigner grid spacing in nm, a list structure of the
     indices of each clock zone (propogating from inputs), and a coupling matrix
@@ -328,18 +345,19 @@ def parse_qca_file(fn, one_zone=False, show=False):
     # extract useful information from data hierarchy
     cells, spacing = proc_hierarchy(hier)
 
-    if one_zone:
-        for cell in cells:
-            cell['clk'] = 0
+    print('Parsed QCA file...')
 
-    # group into clock zones
-    zones, J, feedback = zone_cells(cells, spacing, show=show)
+    for cell in cells:
+        cell['clk'] = 0
+
+    # construct J matrix
+    J = build_J(cells, spacing)
+
+    print('Built J matrix...')
 
     # reorder cells by zone and position
-    cells, zones, J = reorder_cells(cells, zones, J)
+    cells, J = reorder_cells(cells, J)
 
-    # if only one zone is requested, don't need the zone order structure
-    if one_zone:
-        zones = zones[0]
+    pprint('done')
 
-    return cells, spacing, zones, J, feedback
+    return cells, spacing, J

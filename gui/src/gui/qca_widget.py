@@ -239,8 +239,7 @@ class QCAWidget(QtGui.QScrollArea):
         ''' '''
 
         try:
-            cells, spacing, zones, J, feedback = \
-                    parse_qca_file(filename, one_zone=True)
+            cells, spacing, J = parse_qca_file(filename)
         except:
             print('Failed to load QCA File...')
             return
