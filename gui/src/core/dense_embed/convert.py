@@ -311,7 +311,7 @@ def solToModels(sol, prob_dict):
     '''Convert optimized solution parameters to vertex-models'''
 
     global _adj
-    
+
     # assign parameters to shorter variable names
     qbits = prob_dict['qbits']  # cell -> qbit map
     keys = prob_dict['keys']    # chain keys
@@ -457,7 +457,7 @@ def solveLP(prob_dict, verbose):
     if USE_DEFAULT:
         status = prob.solve()
     else:
-        status = prob.solve(solver=pulp.PYGLPK())
+        status = prob.solve(solver=pulp.GLPK_CMD())
     print '\n\n'
 
     # check solution status

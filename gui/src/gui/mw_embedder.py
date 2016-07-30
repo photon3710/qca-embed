@@ -15,7 +15,7 @@ import os
 import gui_settings as settings
 from qca_widget import QCAWidget
 from chimera_widget import ChimeraWidget
-from core.classes import Embedding
+from core.classes import Embedding, get_embedder_flags
 from core.chimera import tuple_to_linear
 
 class MainWindow(QtGui.QMainWindow):
@@ -50,6 +50,8 @@ class MainWindow(QtGui.QMainWindow):
         self.embedding_count = 0    # next embedding index
         self.embedding_actions = {}
         self.embedding_menus = {}
+
+        self.coupling_strength = 1. # relative strength of internal couplers
 
         # main window parameters
         geo = [settings.WIN_X0, settings.WIN_Y0,
@@ -154,11 +156,9 @@ class MainWindow(QtGui.QMainWindow):
 
         self.action_dense_embed_flag = QtGui.QAction('Dense', self)
         self.action_dense_embed_flag.triggered.connect(self.switch_embedder)
-        self.action_dense_embed_flag.setEnabled(False)
 
         self.action_heur_embed_flag = QtGui.QAction('Heuristic', self)
         self.action_heur_embed_flag.triggered.connect(self.switch_embedder)
-        self.action_heur_embed_flag.setEnabled(True)
 
         tile_func_ab = lambda: self.set_tile_style(0)
         tile_func_a = lambda: self.set_tile_style(-1)
@@ -176,6 +176,10 @@ class MainWindow(QtGui.QMainWindow):
         self.action_tile_B_flag.triggered.connect(tile_func_b)
         self.action_tile_B_flag.setEnabled(True)
 
+        self.action_set_coupling = QtGui.QAction('Coupling Strength...', self)
+        self.action_set_coupling.triggered.connect(self.set_coupling)
+        self.action_set_coupling.setEnabled(True)
+
         file_menu.addAction(qcaFileAction)
         file_menu.addAction(embedFileAction)
         file_menu.addAction(chimeraFileAction)
@@ -190,13 +194,27 @@ class MainWindow(QtGui.QMainWindow):
         file_menu.addAction(exitAction)
 
         embedder_menu = tool_menu.addMenu('Embedding method')
-        embedder_menu.addAction(self.action_dense_embed_flag)
-        embedder_menu.addAction(self.action_heur_embed_flag)
+
+        embedders = get_embedder_flags()
+
+        self.use_dense = embedders['dense']
+        if embedders['dense']:
+            embedder_menu.addAction(self.action_dense_embed_flag)
+
+        if embedders['heur']:
+            embedder_menu.addAction(self.action_heur_embed_flag)
+
+        self.action_dense_embed_flag.setEnabled(not self.use_dense)
+        self.action_heur_embed_flag.setEnabled(self.use_dense)
+
+        print('Using dense embedder: {0}'.format(str(self.use_dense).upper()))
 
         tile_style_menu = tool_menu.addMenu('Tile style')
         tile_style_menu.addAction(self.action_tile_AB_flag)
         tile_style_menu.addAction(self.action_tile_A_flag)
         tile_style_menu.addAction(self.action_tile_B_flag)
+
+        tool_menu.addAction(self.action_set_coupling)
 
     def init_toolbar(self):
         ''' '''
@@ -308,6 +326,16 @@ class MainWindow(QtGui.QMainWindow):
 
         return chim_adj, 2
 
+    def set_coupling(self):
+        '''Change the coupling strength of couplers within vertex models'''
+
+        # create popup dialog
+        val, ok = QtGui.QInputDialog.getDouble(self, 'Dailog',
+            'Coupling Strength:', value=self.coupling_strength)
+
+        if ok and val > 0:
+            self.coupling_strength = val
+
 
     def embed_circuit(self):
         '''Run embedding on displayed circuit into selected chimera
@@ -337,6 +365,8 @@ class MainWindow(QtGui.QMainWindow):
             except Exception as e:
                 if type(e).__name__ == 'KeyboardInterrupt':
                     print('Embedding interrupted...')
+                else:
+                    print('Something went wrong...')
                 return
         except:
             print('\nUnexpected crash in embedding... possible disjoint graph')
@@ -795,6 +825,7 @@ class MainWindow(QtGui.QMainWindow):
         # find the coefficients for each set of polarizations
         HQs = []
         JQs = []
+        J_inner = -self.coupling_strength
         for pol_set in pol_sets:
             hq = {}
             Jq = {}
@@ -803,7 +834,7 @@ class MainWindow(QtGui.QMainWindow):
                 pols = pol_set[ind]
                 if len(pols)==0:
                     pols = [[]]
-                h, J = embedding.generate_coefs(pols)
+                h, J = embedding.generate_coefs(pols, J_inner=J_inner)
                 # add new parameters
                 for q in h:
                     hq[q] = h[q]

@@ -12,15 +12,35 @@ import numpy as np
 import re
 import os
 
-from core.dense_embed.embed import denseEmbed, setChimera
-from core.dense_embed.convert import convertToModels
-from core.dense_embed.assign import assign_parameters
 from core.chimera import tuple_to_linear, linear_to_tuple
 import core.core_settings as settings
 
-from dwave_sapi import find_embedding
+# try to import different embedding methods
+embedders = {'dense': True,
+             'heur': True}
+try:
+    from core.dense_embed.embed import denseEmbed, setChimera
+    from core.dense_embed.convert import convertToModels
+    from core.dense_embed.assign import assign_parameters
+except Exception as e:
+    print('Could not load dense embedding method...')
+    embedders['dense'] = False
+
+try:
+    from dwave_sapi import find_embedding
+except Exception as e:
+    print('Could not load heuristic embedding method...')
+    embedders['heur'] = False
+
+# echo available embedder methods
+print('Emedder options:')
+for key, flag in embedders.iteritems():
+    print('\t{0}:\t{1}'.format(key.upper(), 'Enabled' if flag else 'Disabled'))
 
 SABOTAGE = False
+
+def get_embedder_flags():
+    return embedders
 
 class Embedding:
     '''Container class for an embedding'''
@@ -105,7 +125,9 @@ class Embedding:
         self.good = True
 
         # get cell models
+        print('Converting to models...')
         models, max_model = convertToModels(paths, cell_map)
+        print('done')
 
         self.models = {k: models[k]['qbits'] for k in models}
 
@@ -236,7 +258,7 @@ class Embedding:
         # compute qubit parameters
         hq, Jq = assign_parameters(h, J, self.models, self.chimera_adj,
                                    flip_J=True, J_inner=J_inner)
-        
+
         # correct for tile offset
         M0, N0 = self.active_range['M'][0], self.active_range['N'][0]
         mapping = lambda q: (q[0]+M0, q[1]+N0, q[2], q[3])
@@ -302,7 +324,7 @@ class Embedding:
         N0 = int(info['N0'])
         self.active_range = {'M': [M0, M0+self.M],
                              'N': [N0, N0+self.N]}
-                             
+
         # refine chimera adjacency
         tile_check = lambda m, n, h, l: \
             m >= self.active_range['M'][0] and\
@@ -312,7 +334,7 @@ class Embedding:
 
         chimera_adj = {k1: [k2 for k2 in chimera_adj[k1] if tile_check(*k2)]
             for k1 in chimera_adj if tile_check(*k1)}
-        
+
         offset = lambda m, n, h, l: (m-M0, n-N0, h, l)
         chimera_adj = {offset(*k1): [offset(*k2) for k2 in chimera_adj[k1]]
             for k1 in chimera_adj}

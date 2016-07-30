@@ -204,13 +204,16 @@ def convert_to_parameters(h, J, subgraphs, edges, J_inner):
     hq = {}     # h parameter for each qubit used: keys are integers
     Jq = {}     # J parameter for each coupler: key format (u, v) with u < v
 
+    # scale factor for handling general J_inner
+    scale = float(max(1., abs(J_inner)))
+
     # handle internal subgraph parameters
     for node in h:
         subgraph = subgraphs[node]
         for qbit in subgraph.nodes():
-            hq[qbit] = h[node]*1./subgraph.number_of_nodes()
+            hq[qbit] = h[node]*1./subgraph.number_of_nodes()/scale
         for q1, q2 in subgraph.edges():
-            Jq[(q1, q2)] = J_inner
+            Jq[(q1, q2)] = J_inner/scale
 
     # handle inter-subgraph parameters
     nodes = sorted(subgraphs.keys())
@@ -220,7 +223,7 @@ def convert_to_parameters(h, J, subgraphs, edges, J_inner):
             n2 = nodes[j]
             if n2 in J[n1]:
                 for q1, q2 in edges[(n1, n2)]:
-                    Jq[(q1, q2)] = J[n1][n2]*1./len(edges[(n1, n2)])
+                    Jq[(q1, q2)] = J[n1][n2]*1./len(edges[(n1, n2)])/scale
 
     return hq, Jq
 
@@ -230,7 +233,7 @@ def assign_parameters(h, J, qbits, chimera, flip_J=False, J_inner=-1):
     a list of qubits for each problem node and an adjacency list for the
     target chimera structure (with qbit labels as verticed)
 
-    inputs: h       : dict of on-site terms for each problem
+    inputs: h       : dict of on-site terms for each problem node
             J       : dict of coupling terms between each problem node
             qbits   : list of qbits for each problem node
             chimera : adjacency list structure for the target chimera graph
