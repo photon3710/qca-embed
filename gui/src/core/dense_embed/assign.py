@@ -206,6 +206,7 @@ def convert_to_parameters(h, J, subgraphs, edges, J_inner):
 
     # scale factor for handling general J_inner
     scale = float(max(1., abs(J_inner)))
+    print('J_inner set to: {0}'.format(J_inner))
 
     # handle internal subgraph parameters
     for node in h:
@@ -241,7 +242,7 @@ def assign_parameters(h, J, qbits, chimera, flip_J=False, J_inner=-1):
     '''
 
     # check that h and J are normalised
-    max_hj = max( abs(J_inner), np.max(np.abs(h.values())),
+    max_hj = max(np.max(np.abs(h.values())),
                  max([max(J[node].values()) for node in J]))
     if max_hj == 0:
         print('Invalid problem statement. All zero parameters')

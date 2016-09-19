@@ -439,21 +439,30 @@ class MainWindow(QtGui.QMainWindow):
         fprint(os.path.basename(fname))
 
         NP = len(pol_data)  # number of possible polarization comfigurations
+        print(NP)
+        pind = None
         if NP == 1:
-            fn_regex = re.compile('.*[a-zA-Z_]+_[0-9]+us.json')
+            fn_regex = re.compile('.*[a-zA-Z_]+_[0-9]+us\.json')
             val_regex = re.compile('_[0-9]+us')
         else:
-            fn_regex = re.compile('.*[0-{0}]+_[0-9]+us.json'.format(NP))
+            fn_regex = re.compile('.*[0-{0}]+_[0-9]+us\.json'.format(NP))
             val_regex = re.compile('[0-{0}]+_[0-9]+us'.format(NP))
         if not fn_regex.match(fname):
-            print('Given filename does not match the required pattern: {0}...'.format(fname))
-            return
+            try:
+                fn_regex = re.compile('.*_[0-9]+us\.json')
+                assert fn_regex.match(fname)
+                val_regex = re.compile('_[0-9]+us')
+                pind = 0
+            except:
+                print('Given filename does not match the required pattern: {0}...'.format(fname))
+                return
 
         # extract pind and rt
         val_str = val_regex.findall(fname)[-1]  # will work if this far
         vals = [int(x) for x in re.findall('[0-9]+', val_str)]
 
-        pind = 0 if NP==1 else vals[0]
+        if pind is None:
+            pind = 0 if NP==1 else vals[0]
         rt = vals[-1]
 
 #        print('{0}: pind={1}, rt={2}'.format(fname, pind, rt))

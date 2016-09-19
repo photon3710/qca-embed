@@ -14,6 +14,7 @@ import os
 
 from core.chimera import tuple_to_linear, linear_to_tuple
 import core.core_settings as settings
+from core.dense_embed.assign import assign_parameters
 
 # try to import different embedding methods
 embedders = {'dense': True,
@@ -21,7 +22,6 @@ embedders = {'dense': True,
 try:
     from core.dense_embed.embed import denseEmbed, setChimera
     from core.dense_embed.convert import convertToModels
-    from core.dense_embed.assign import assign_parameters
 except Exception as e:
     print('Could not load dense embedding method...')
     embedders['dense'] = False

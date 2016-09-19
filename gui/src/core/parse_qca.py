@@ -317,7 +317,6 @@ def reorder_cells(cells, J, flipy=False):
         keys[ind] = (ysgn*cell['y'], cell['x'])
 
     order = zip(*sorted([(keys[i], i) for i in keys]))[1]
-    print(order)
 
     # relabel cells and reorder the J matrix
     cells = [cells[i] for i in order]
@@ -332,7 +331,7 @@ def reorder_cells(cells, J, flipy=False):
 
 ## MAIN FUNCTION
 
-def parse_qca_file(fn):
+def parse_qca_file(fn, verbose=False):
     '''Parse a QCADesigner file to extract cell properties. Returns an ordered
     list of cells, the QCADesigner grid spacing in nm, a list structure of the
     indices of each clock zone (propogating from inputs), and a coupling matrix
@@ -345,7 +344,8 @@ def parse_qca_file(fn):
     # extract useful information from data hierarchy
     cells, spacing = proc_hierarchy(hier)
 
-    print('Parsed QCA file...')
+    if verbose:
+        print('Parsed QCA file...')
 
     for cell in cells:
         cell['clk'] = 0
@@ -353,11 +353,7 @@ def parse_qca_file(fn):
     # construct J matrix
     J = build_J(cells, spacing)
 
-    print('Built J matrix...')
-
     # reorder cells by zone and position
     cells, J = reorder_cells(cells, J)
-
-    pprint('done')
 
     return cells, spacing, J

@@ -637,7 +637,7 @@ class MainWindow(QtGui.QMainWindow):
 
         if len(files) > 0:
             reply = QtGui.QMessageBox.question(self, 'Message',
-            'This directory already contain content that will be deleted. Do\
+            'This directory already contains content that will be deleted. Do\
             you want to continue?',
             QtGui.QMessageBox.Yes | QtGui.QMessageBox.Cancel,
             QtGui.QMessageBox.Cancel)

@@ -23,7 +23,7 @@ from itertools import combinations
 from time import time
 
 from core import hash_problem, state_to_pol
-from sparse import solve as exact_solve 
+from sparse import solve as exact_solve
 from sparse import solve_sparse
 
 from pprint import pprint
@@ -31,48 +31,48 @@ from pprint import pprint
 # solver parameters
 N_PARTS = 2     # number of partitions at each recursive step
 
-N_THRESH = 6            # largest allowed number of nodes for exact solver
-MEM_THRESH = 1e4        # maximum mode count product
-STATE_THRESH = 0.1     # required amplitude for state contribution
+N_THRESH = 5            # largest allowed number of nodes for exact solver
+MEM_THRESH = 1e5        # maximum mode count product
+STATE_THRESH = 0.05     # required amplitude for state contribution
 E_RES = 1e-3            # resolution in energy binning
 W_POW = 1               # power for weighting nodes in chlebikova bisection
-    
+
 
 ### SOLUTION CACHE FUNCTIONS
 
 def generate_hash_table(direc=None):
     '''If direc exists, generate the hash table from the directory
     file structure. Otherwise, create the given directory.'''
-    
+
     hash_table = {}
-    
+
     if os.path.exists(direc):
         # load hash table from file list
         regex = re.compile('^[mp][0-9]+.json')
         fnames = os.listdir(direc)
         keys = [fname for fname in fnames if regex.match(fname)]
-        
+
         for key in keys:
             hval = (-1 if key[0]=='m' else 1)*int(key[1:].partition('.')[0])
             hash_table[hval]=key
     else:
         os.makedirs(direc)
-    
+
     return hash_table
 
 def from_cache(cache_dir, hval, K, hp, inds):
     '''Load and convert Es and modes from cache'''
-    
+
     inv_map = {k: i for i, k in enumerate(inds)}
     ninds = [inv_map[k] for k in range(len(inds))]
-    
+
     ext = '{0}{1}.json'.format('m' if hval<0 else 'p', abs(hval))
     fname = os.path.join(cache_dir, ext)
-    
+
     fp = open(fname, 'r')
     data = json.load(fp)
     fp.close()
-    
+
     Es = data['Es']
     modes = data['modes']
 
@@ -83,7 +83,7 @@ def from_cache(cache_dir, hval, K, hp, inds):
         for md in mds:
             m.append(tuple(hp*np.array(md)[ninds]))
         modes_.append(m)
-    
+
     return Es_, modes_
 
 def to_cache(Es, modes, cache_dir, hval, K, hp, inds):
@@ -91,7 +91,7 @@ def to_cache(Es, modes, cache_dir, hval, K, hp, inds):
 
     ext = '{0}{1}.json'.format('m' if hval<0 else 'p', abs(hval))
     fname = os.path.join(cache_dir, ext)
-    
+
     Es_ = [E/K for E in Es]
     modes_ = []
     for mds in modes:
@@ -99,11 +99,11 @@ def to_cache(Es, modes, cache_dir, hval, K, hp, inds):
         for md in mds:
             m.append(tuple(hp*np.array(md)[inds]))
         modes_.append(m)
-    
+
     fp = open(fname, 'w')
     json.dump({'Es': Es_, 'modes': modes_}, fp)
     fp.close()
-    
+
     return ext
 
 
@@ -111,36 +111,36 @@ def to_cache(Es, modes, cache_dir, hval, K, hp, inds):
 
 def run_pymetis(J, nparts):
     ''' '''
-    
+
 #    print('running {0}-way partitioning...'.format(nparts))
     # run pymetis partitioning
     adj_list = nx.to_dict_of_lists(nx.Graph(J))
     adj_list = [adj_list[k] for k in range(len(adj_list))]
     ncuts, labels = part_graph(nparts, adjacency=adj_list)
-    
+
     # get indices of each partition
     parts = [[] for _ in range(nparts)]
     for i, p in enumerate(labels):
         parts[p].append(i)
-    
+
     return parts
 
 def run_chlebikova(J):
     ''' '''
-    
+
 #    print('Running chlebikova...')
     G = nx.Graph(J!=0)
     for k in G:
         G.node[k]['w'] = 1./len(G[k])**W_POW
     V1, V2 = chlebikova(G)
-    
+
     return [sorted(x) for x in [V1, V2]]
 
 # checked
 def compute_rp_tree(J, nparts=2, inds=None):
     '''Build the recursive partition tree of the adjacency matrix J. At each
     step, J is split into nparts partitions.'''
-    
+
     if inds is None:
         inds = range(J.shape[0])
 
@@ -152,18 +152,18 @@ def compute_rp_tree(J, nparts=2, inds=None):
         parts = run_chlebikova(J)
     else:
         parts = run_pymetis(J, nparts)
-    
+
     # recursively build children tree
     for part in parts:
         sub_tree = compute_rp_tree(J[part,:][:,part], nparts=nparts, inds=part)
         tree['children'].append(sub_tree)
-    
+
     return tree
 
 # checked
 def check_tree(tree):
     '''Check that the tree is a valid recursive partition tree'''
-    
+
     # children partition the root
     if tree['children']:
         union = []
@@ -171,7 +171,7 @@ def check_tree(tree):
             union += child['inds']
         if sorted(union) != range(len(tree['inds'])):
             return False
-    
+
     # children are valid rp trees for their arrays
     for child in tree['children']:
         if not check_tree(child):
@@ -183,11 +183,11 @@ def check_tree(tree):
 def partition(h, J, tree):
     '''Partition h and J parameters for the children of the current tree node.
     Returns the h and J parameters for each child as well as a dict '''
-    
+
     h_p = []
     J_p = []
     C_p = {}
-    
+
     nc = len(tree['children'])  # number of children for current node
 
     # on-partition parameters
@@ -200,7 +200,7 @@ def partition(h, J, tree):
     for i, j in combinations(range(nc), 2):
         inds1, inds2 = [tree['children'][x]['inds'] for x in [i,j]]
         C_p[(i,j)] = J[inds1, :][:, inds2]
-    
+
     return h_p, J_p, C_p
 
 
@@ -220,10 +220,10 @@ def rp_state_to_pol(amps, prod_states=None):
 def get_prod_states(state, comp=False):
     '''Get spin representation of the product states which contribute to the
     given state'''
-    
+
     # number of spins
     N = int(np.log2(state.shape[0]))
-    
+
     # isolate contributing product states
     inds = (np.abs(state) > STATE_THRESH).nonzero()[0]
 
@@ -245,7 +245,7 @@ def get_prod_states(state, comp=False):
 def proc_exact_solve(e_vals, e_vecs, e_res):
     '''Process output from exact solve. Bin energies and record new modes
     for each bin'''
-    
+
     n_states = e_vecs.shape[1]
 
     states = [e_vecs[:, i] for i in range(n_states)]
@@ -280,25 +280,25 @@ def proc_exact_solve(e_vals, e_vecs, e_res):
     prod_states = PSbin
 
     return Es, prod_states
-    
+
 
 def select_modes(ES, MS):
     '''Based on the energy gaps for the solution of each partition, select
     which product state modes are included. Input modes should be formated
     as vectors of +- 1. MS[p][i] is a list of modes for the i^th energy bin
     of partition p.'''
-    
+
     Np = len(ES)    # number of partitions
-    
+
     i_p = [1]*Np     # number of included indices for each partition
     m_p = [0]*Np     # number of included modes for each partition
-    
+
     prod = 1        # number of modes in product space
-    
+
     # offset energies by ground state energies
     for Es in ES:
         Es -= Es[0]
-    
+
     # force inclusion of ground state modes
     for p in range(Np):
         m_p[p] += len(MS[p][0])
@@ -306,7 +306,7 @@ def select_modes(ES, MS):
 
     # check fill condition
     assert prod < MEM_THRESH, 'Not enough memory for ground state inclusion'
-    
+
     # determine number of new product states for each partition
     K = [[] for i in range(Np)]
     for i in range(Np):
@@ -351,36 +351,36 @@ def select_modes(ES, MS):
 
 def comp_on_partition(h, J, gam, modes):
     '''Compute on-partition parameters'''
-    
+
     N = h.size
-    
+
     modes = np.matrix(modes)
-    
+
     J_ = np.matrix(np.triu(J))
     sz = np.dot(h, modes.T).reshape([-1,])
     sz2 = np.diag(modes*J_*modes.T)
-    
+
     if gam is None:
         g = None
     else:
         mds = np.asarray(modes)
         diff = np.abs(mds.reshape([-1, 1, N])-mds.reshape([1, -1, N]))
         g = gam*(np.sum(diff, axis=2) == 2)
-    
+
     return [sz, sz2, g]
-    
+
 def comp_off_partition(C, mds1, mds2):
     '''Compute the inter-partition coupling parameters'''
-    
+
     JJ = mds1*C*mds2.T
-    
+
     return JJ
-    
+
 def gen_comp_diag(sz, sz2, J_m):
     '''Compute the diagonal elements of the component Hamiltonian'''
-    
+
     N = len(sz)     # number of partitions
-    
+
     # generate size counters
     M = [sz_.shape[1] for sz_ in sz]  # number of modes per partition
     C = np.cumprod(M)   # cumulative product of mode sizes
@@ -405,13 +405,13 @@ def gen_comp_diag(sz, sz2, J_m):
         # handle p2 behaviour
         b = np.tile(a.flatten(), C[-1]/C[p2+1])
         ext_coup += b
-            
+
     return on_site + ext_coup
 
 def gen_comp_tunn(G):
     '''Compute the off-diagonal tunneling terms in the component formalism. G
     is a list of the on-partition tunneling operators'''
-    
+
     N = len(G)  # number of partitions
     Nm = [x.shape[0] for x in G]    # number of modes per partition
     Cm = np.insert(np.cumprod(Nm), 0, 1)     # size of each partition sub-block
@@ -433,7 +433,7 @@ def gen_comp_tunn(G):
 
 def build_comp_H(h_p, J_p, C_p, gam, modes):
     '''Build a sparse representation fo the component space Hamiltonian'''
-    
+
     N = len(h_p)    # number of partitions
     # get on partition parameters
     temp = [comp_on_partition(h, J, gam, m) for h, J, m in zip(h_p, J_p, modes)]
@@ -443,10 +443,10 @@ def build_comp_H(h_p, J_p, C_p, gam, modes):
     J_m = {}
     for i, j in combinations(range(N), 2):
         J_m[(i,j)] = comp_off_partition(C_p[(i,j)], modes[i], modes[j])
-    
+
     # construct diagonal elements
     diag = gen_comp_diag(sz, sz2, J_m).reshape([-1,])
-    
+
     ### FOR NOW ALLOW PURELY DIAG MATRIX
     diag = sp.diags([diag], [0])
 
@@ -466,7 +466,7 @@ def general_decomp(n, c):
         rep.append(t)
 
     return rep
-    
+
 def correct_prod_state(pstates, modes, tree):
     '''Correct product state to account for mode space representation'''
 
@@ -497,13 +497,13 @@ def correct_prod_state(pstates, modes, tree):
 
 def proc_comp_solve(e_vals, e_vecs, modes, tree, e_res):
     '''Process the output of the sparse solver for the component formalism'''
-    
+
     ns = e_vecs.shape[1]    # number of states
-    
+
     Es = list(e_vals)
     states = [e_vecs[:, i] for i in range(ns)]
     pstates = [get_prod_states(state, comp=True) for state in states]
-    
+
     # bin energies and correct
     Ebin = []
     PSbin = []
@@ -531,30 +531,33 @@ def proc_comp_solve(e_vals, e_vecs, modes, tree, e_res):
     pstates = correct_prod_state(pstates, modes, tree)
 
     return Es, pstates
-    
-    
+
+
 def solve_comp(h_p, J_p, C_p, gam, modes, tree, e_res, **kwargs):
     '''Formulate and solve the component Hamiltonian at the current tree node'''
-    
+
     verbose = kwargs['verbose']
     t = time()
-    
+
     if verbose:
         print('\nRunning components solver...')
-        
+
     Hs = build_comp_H(h_p, J_p, C_p, gam, modes)
+
+    # print(Hs.diagonal())
 
     t1 = time()
     # run sparse matric solver
     if verbose:
         print('H matrix size {0}'.format(str(Hs.shape)))
         print('Running sparse solver...'),
+
     e_vals, e_vecs = solve_sparse(Hs, more=False)
     if verbose:
         print('solver time: {0:.4f} sec'.format(time()-t1))
-    
+
     Es, modes = proc_comp_solve(e_vals, e_vecs, modes, tree, e_res)
-    
+
     if verbose:
         print('Component solver time: {0:.4f}'.format(time()-t))
 
@@ -564,22 +567,22 @@ def solve_comp(h_p, J_p, C_p, gam, modes, tree, e_res, **kwargs):
         raise KeyError
     except KeyError:
         return Es, modes
-    
-    
-    
+
+
+
 def recursive_solver(h, J, gam, tree, **kwargs):
     '''Recursive method for identifying energy bins and significant modes'''
 
     # pull parameters from kwargs
     cache_dir = kwargs['cache_dir']
     verbose = kwargs['verbose']
-    
+
     # energy resolution
     e_res = np.max(np.abs(J))*E_RES
-    
+
     if verbose:
         print('Detected problem size: {0}'.format(h.size))
-        
+
     # try to read from cache
     if cache_dir is not None:
         # get or create hash table
@@ -594,7 +597,7 @@ def recursive_solver(h, J, gam, tree, **kwargs):
                 return Es, modes
             except:
                 print('Something went wrong reading from cache')
-    
+
     # solution not cached, compute
     if not tree['children']:
         if verbose:
@@ -605,7 +608,7 @@ def recursive_solver(h, J, gam, tree, **kwargs):
         if verbose:
             print('Running recursive partitioning...')
         h_p, J_p, C_p = partition(h, J, tree)
-        
+
         # solve each partition recursively
         ES, MS = [], []
         for h_, J_, tree_ in zip(h_p, J_p, tree['children']):
@@ -615,10 +618,10 @@ def recursive_solver(h, J, gam, tree, **kwargs):
 
         # select modes to include
         modes = select_modes(ES, MS)
-        
+
         # solve component system
         Es, modes = solve_comp(h_p, J_p, C_p, gam, modes, tree, e_res, **kwargs)
-    
+
     # save to cache
     if 'hash_table' in kwargs:
         try:
@@ -631,7 +634,7 @@ def recursive_solver(h, J, gam, tree, **kwargs):
 def out_handler(h, J, gam, prod_states):
     '''Make an estimation of low energy spectrum using the determined
     applicable subset of product states and the problem parameters'''
-    
+
 
     # create a single list of the product states
     prod_states = [list(ps) for ps in prod_states]
@@ -641,7 +644,7 @@ def out_handler(h, J, gam, prod_states):
     modes = np.matrix(pstates)
     Hs = build_comp_H([h], [J], [], gam, [modes])
     Eps = Hs.diagonal()
-    
+
     # sort product states by energy
     ps_order = sorted(list(enumerate(Eps)), key=lambda x: x[1])
     ps_order, Eps = zip(*ps_order)
@@ -661,44 +664,44 @@ def out_handler(h, J, gam, prod_states):
 def rp_solve(h, J, gam=None, **kwargs):
     '''Solve transverse field ising spin-glass configuration using recursive
     partitioning with low-energy spectrum mode composition.
-    
+
     inputs: h       : iterable of bias parameters
             J       : array of interaction parameters
             gam     : optional, scalar tunneling parameter for all cells
-            
+
     optional kwargs:
             tree        : pre-computed recursion tree
             cache_dir   : directory for cached solutions
             hash_table  : table of hash values for cached solutions
             verbose     : flag, echo activity.
-            
+
     outputs:    e_vals  : estimates of lowest eigen-values.
                 e_vecs  : estimates of corresponding eigen-states in the basis
                           of modes. (e_vecs[:,i] is the i^th state)
                 modes   : array of basis modes. (modes[:,i] is the i^th mode)
     '''
-    
+
     if 'verbose' in kwargs:
         verbose = kwargs['verbose']
     else:
         verbose=False
-    
+
     if 'cache_dir' in kwargs:
         cache_dir = kwargs['cache_dir']
     else:
         cache_dir = None
-    
+
     # regularise input formating
     if verbose:
         print('Standardizing input format...')
 
     assert isinstance(h, Iterable), 'h is not iterable'
     h = np.array(h).reshape([-1,])
-    
+
     assert isinstance(J, Iterable), 'J is not iterable'
     J = np.array(J)
     assert J.shape == (len(h), len(h)), 'J is not square'
-    
+
     if isinstance(gam, Number):
         gam = float(gam)
     elif gam is not None:
@@ -708,7 +711,7 @@ def rp_solve(h, J, gam=None, **kwargs):
     if np.any(np.tril(J,-1)):
         J = J.T
     J = np.triu(J)+np.triu(J, 1).T
-        
+
     # initialise recursion tree
     if verbose:
         print('Getting recursion tree...')
@@ -722,7 +725,7 @@ def rp_solve(h, J, gam=None, **kwargs):
 
     # run recursive solver
     Es, modes = recursive_solver(h, J, gam, tree, verbose=verbose, cache_dir=cache_dir)
-    
+
     # estimate eigenvalues and eigenstates
     e_vals, e_vecs, Eps, modes, pols  = out_handler(h, J, gam, modes)
 
@@ -730,4 +733,3 @@ def rp_solve(h, J, gam=None, **kwargs):
 
 if __name__ == '__main__':
     pass
-    
